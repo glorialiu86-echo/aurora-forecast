@@ -256,13 +256,25 @@ function evalP3(features, cloud){
 
   return { can, visible, bzOpen, skyOK, reason };
 }
-
 function combineLevel(p1, p2, p3){
+  // 硬否决：P1不允许或你前面的纬度门槛已拦截
   if (p1 === '❌') return '放弃';
-  if (p3.can && p1 === '✅' && p2 === '✅') return '强烈推荐';
-  if (p3.can && p1 !== '❌') return '可以拍';
-  if (p2 !== '❌') return '观望';
-  return '不建议';
+
+  // 以P3为主：这一小时到底值不值得折腾
+  // 1) 云不行：直接不建议
+  if (!p3.skyOK) return '不建议';
+
+  // 2) 能量不足：直接不建议（不再因为 P2⚠️ 就给观望）
+  if (!p3.visible) return '不建议';
+
+  // 3) Bz 没开：观望（等开机）
+  if (!p3.bzOpen) return '观望';
+
+  // 走到这：P3三关都过 = 可以拍
+  // P2只负责“升档”，不负责“把你困在观望”
+  if (p2 === '✅' && p1 === '✅') return '强烈推荐';
+
+  return '可以拍';
 }
 
 function renderTable(hoursUTC, tzStr, levels, reasons){
