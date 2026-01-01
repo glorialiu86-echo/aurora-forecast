@@ -803,67 +803,165 @@
         safeText($("threeClouds"), "云量评分：—（云量数据不可用）");
       }
 
-      // 72h：按天
-      const days = next3DaysLocal(baseDate);
-      const kpMap = kp.ok ? kpMaxByDay(kp.data) : null;
+      // ---------- 强提示弹窗（NOAA缺字段/异常时必须手动关闭） ----------
+let __alertBound = false;
+function showAlertModal(html){
+  const overlay = document.getElementById("alertOverlay");
+  const body = document.getElementById("alertBody");
+  const close = document.getElementById("alertClose");
+  const ok = document.getElementById("alertOk");
+  if(!overlay || !body) return;
 
-      const tbody = [];
-      days.forEach(d=>{
-        const key = fmtYMD(d);
-        const kpMax = kpMap?.get(key) ?? null;
+  body.innerHTML = html;
 
-        // 能量背景：kp 3.5~7.0
-        const sKp = (kpMax == null) ? 0.45 : clamp((kpMax - 3.5) / (7.0 - 3.5), 0, 1);
+  overlay.classList.add("show");
+  overlay.setAttribute("aria-hidden", "false");
 
-        // 送达能力：当前 del 作为背景
-        const sDel = del.count / 3; // 0~1
+  if(!__alertBound){
+    __alertBound = true;
+    const hide = () => {
+      overlay.classList.remove("show");
+      overlay.setAttribute("aria-hidden", "true");
+    };
+    close && close.addEventListener("click", hide);
+    ok && ok.addEventListener("click", hide);
+    overlay.addEventListener("click", (e) => { if(e.target === overlay) hide(); });
+    document.addEventListener("keydown", (e) => { if(e.key === "Escape") hide(); });
+  }
+}
 
-        // 云量：当天最佳清晰度
-        const sCloud = scoreCloudDay(clouds.ok ? clouds.data : null, d);
+// ---------- 3小时云量评分（优/良/中/差） ----------
+function cloudGradeFromBest(best){
+  // best: {low, mid, high}
+  // 你说“80%低云就是差”，这里按更直觉的阈值来
+  const low = Number(best?.low ?? 100);
+  const mid = Number(best?.mid ?? 100);
+  const high = Number(best?.high ?? 100);
 
-        // 合成内部 c10
-        let c10 = (sKp*0.48 + sDel*0.32 + sCloud*0.20) * 10;
+  // 低云权重大：低云<=20 且中云<=40 且高云<=70 => 优
+  if(low <= 20 && mid <= 40 && high <= 70) return "优";
+  // 低云<=40 且中云<=55 且高云<=80 => 良
+  if(low <= 40 && mid <= 55 && high <= 80) return "良";
+  // 低云<=60 且中云<=70 且高云<=90 => 中
+  if(low <= 60 && mid <= 70 && high <= 90) return "中";
+  return "差";
+}
 
-        // 后台夜间占比
-        const nightRatio = estimateNightRatio(d, lat, lon);
-        c10 *= (0.55 + nightRatio*0.45);
+// ---------- 72h：简化依据 + 高速风/能量输入 1/1 ----------
+// 高速风（p1a）与能量输入（p1b）这里给一个“可用的默认代理”
+// 你之后有更准的规则，直接改这两个布尔值即可
+function p1a_fastWind(sw){
+  const v = Number(sw?.v ?? 0);
+  return v >= 480; // 高速风代理：速度>=480
+}
+function p1b_energyInput(sw){
+  const bt = Number(sw?.bt ?? 0);
+  const bz = Number(sw?.bz ?? 999);
+  // 能量输入代理：Bt平台化 + Bz南向
+  return (bt >= 6.5) && (bz <= -2.0);
+}
 
-        // 月角温和版
-        const mAlt = getMoonAltDeg(new Date(d.getTime()+12*3600*1000), lat, lon);
-        c10 *= soften(moonFactorByLat(lat, mAlt), 0.6);
+// ---------- 72h（替换段落开始） ----------
+const days = next3DaysLocal(baseDate);
+const kpMap = kp.ok ? kpMaxByDay(kp.data) : null;
 
-        c10 = clamp(c10, 0, 10);
+const tbody = [];
 
-        // 映射到 1..5
-        const s5 = score5FromC10(c10);
-        const lab = labelByScore5(s5);
+// NOAA 缺字段强提示（只要缺一个就弹）
+const missing = [];
+if (sw.v == null) missing.push("V");
+if (sw.bt == null) missing.push("Bt");
+if (sw.bz == null) missing.push("Bz");
+if (sw.n == null) missing.push("N");
 
-        const basis = [];
-        if(kpMax != null) basis.push(`能量背景：Kp峰值≈${round0(kpMax)}`);
-        else basis.push(`能量背景：Kp 暂无有效数据（保守评估）`);
+if (missing.length){
+  showAlertModal(`
+    <div>⚠️ NOAA 返回数据缺失：<b>${missing.join("、")}</b></div>
+    <div class="mutedLine">下面结果为 <b>缺乏部分数据情况下的保守估算</b>（仅供参考），不是你这边的问题。</div>
+  `);
+}
 
-        basis.push(`日冕洞与日冕物质抛射模型：以 Kp 作为能量背景代理（值越高越有戏）`);
-        basis.push(`太阳风送达能力综合模型：当前 ${del.count}/3（Bt/速度/密度）`);
+// 3小时云量：改成“云量评分：优/良/中/差”，并把低/中/高云换行显示（更小）
+let cloudBest = null;
+if (clouds.ok && clouds.data) cloudBest = bestCloud3h(clouds.data, baseDate);
+if (cloudBest){
+  const grade = cloudGradeFromBest(cloudBest);
+  safeHTML(
+    $("threeClouds"),
+    `云量评分：<b>${grade}</b>
+     <div class="cloudDetail">低云 ${cloudBest.low}% ｜ 中云 ${cloudBest.mid}% ｜ 高云 ${cloudBest.high}%</div>`
+  );
+}else{
+  safeHTML($("threeClouds"), `云量评分：<b>—</b><div class="cloudDetail">低云 —% ｜ 中云 —% ｜ 高云 —%</div>`);
+}
 
-        if(clouds.ok && clouds.data){
-          const win = bestCloudHourForDay(clouds.data, d);
-          if(win) basis.push(`云量更佳点：${win.hh}:00（低云≈${win.low}% 中云≈${win.mid}% 高云≈${win.high}%）`);
-          else basis.push(`云量：暂无可用点（保守）`);
-        }else{
-          basis.push(`云量：暂无可用数据（保守）`);
-        }
+// 72小时表格依据：按你要的 4 行固定模板，避免重复长文
+days.forEach(d => {
+  const key = fmtYMD(d);
+  const kpMax = kpMap?.get(key) ?? null;
 
-        tbody.push(`
-          <tr>
-            <td>${key}</td>
-            <td>${badgeHTML(lab.t, lab.cls)}</td>
-            <td>${scoreHTML(s5)}</td>
-            <td class="muted2">${basis.map(x=>`• ${escapeHTML(x)}`).join("<br/>")}</td>
-          </tr>
-        `);
-      });
+  // 分数（0-5）：你现在全站走 1-5 档，这里也统一成 1-5（四舍五入 + clamp）
+  // 这里的“基础评分”仍保守：Kp + 送达 + 云量
+  const sKp = kpMax == null ? 0.40 : clamp((kpMax - 3.5) / (7.0 - 3.5), 0, 1);
+  const sDel = del.count / 3;
+  const sCloud = scoreCloudDay(clouds.ok ? clouds.data : null, d);
 
-      safeHTML($("daysBody"), tbody.join(""));
+  let cDay10 = (sKp * 0.48 + sDel * 0.32 + sCloud * 0.20) * 10;
+
+  const nightRatio = estimateNightRatio(d, lat, lon);
+  cDay10 *= (0.55 + nightRatio * 0.45);
+
+  const mAlt = getMoonAltDeg(new Date(d.getTime() + 12 * 3600 * 1000), lat, lon);
+  const fMoon = soften(moonFactorByLat(lat, mAlt), 0.6);
+  cDay10 *= fMoon;
+
+  cDay10 = clamp(cDay10, 0, 10);
+
+  // 映射到 1-5 分（不要小数）
+  let score5 = Math.round((cDay10 / 10) * 5);
+  score5 = clamp(score5, 1, 5);
+
+  // 用 1小时同一套五档文案（标题一致），但不改你那句解释风格
+  // 5 强烈推荐 / 4 值得出门 / 3 可蹲守 / 2 低概率 / 1 不可观测
+  const map5 = {
+    5: { t: "强烈推荐", cls: "g" },
+    4: { t: "值得出门", cls: "g" },
+    3: { t: "可蹲守", cls: "b" },
+    2: { t: "低概率", cls: "y" },
+    1: { t: "不可观测", cls: "r" },
+  };
+  const lab = map5[score5];
+
+  // 云量更佳点
+  let cloudLine = "云量更佳点：—";
+  if (clouds.ok && clouds.data) {
+    const win = bestCloudHourForDay(clouds.data, d);
+    if (win) cloudLine = `云量更佳点：${win.hh}:00（低云≈${win.low}% 中云≈${win.mid}% 高云≈${win.high}%）`;
+  }
+
+  // p1a/p1b（高速风/能量输入）
+  const p1a = p1a_fastWind(sw) ? 1 : 0;
+  const p1b = p1b_energyInput(sw) ? 1 : 0;
+
+  const basis = [
+    `• 能量背景：Kp峰值≈${kpMax == null ? "—" : round1(kpMax)}`,
+    `• 日冕洞与日冕物质抛射模型：高速风${p1a}/1，能量输入${p1b}/1`,
+    `• 太阳风送达能力综合模型：当前 ${del.count}/3（Bt/速度/密度）`,
+    `• ${cloudLine}`,
+  ].join("<br/>");
+
+  tbody.push(`
+    <tr>
+      <td>${key}</td>
+      <td>${badgeHTML(lab.t, lab.cls)}</td>
+      <td>${score5}</td>
+      <td class="muted2">${escapeHTML("").replace("", "")}${basis}</td>
+    </tr>
+  `);
+});
+
+safeHTML($("daysBody"), tbody.join(""));
+// ---------- 72h（替换段落结束） ----------
 
     }catch(err){
       console.error("[AuroraCapture] run error:", err);
