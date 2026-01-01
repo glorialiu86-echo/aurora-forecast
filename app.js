@@ -944,7 +944,7 @@ days.forEach(d => {
   const p1b = p1b_energyInput(sw) ? 1 : 0;
 
   const basis = [
-    `• 能量背景：Kp峰值≈${kpMax == null ? "—" : round1(kpMax)}`,
+    `• 能量背景：Kp峰值≈${kpMax == null ? "—" : Math.round(kpMax)}`,
     `• 日冕洞与日冕物质抛射模型：高速风${p1a}/1，能量输入${p1b}/1`,
     `• 太阳风送达能力综合模型：当前 ${del.count}/3（Bt/速度/密度）`,
     `• ${cloudLine}`,
