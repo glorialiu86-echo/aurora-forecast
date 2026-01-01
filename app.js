@@ -331,9 +331,9 @@ async function run(){
   const localTime = $('localTime').value.trim();
   // —— 摄影经验纬度下限（地理纬度）——
 const alat = Math.abs(lat);
-if (alat < 55) {
-  alert(`地理纬度 ${alat.toFixed(1)}°，低于摄影可行下限（55°）。\n该纬度仅在极端太阳风暴下才可能可见，默认判「放弃」。`);
-  setStatus(`放弃：地理纬度 ${alat.toFixed(1)}° < 55°`);
+if (alat < 50) {
+  alert(`地理纬度 ${alat.toFixed(1)}°，低于摄影可行下限（50°）。\n该纬度仅在极端太阳风暴下才可能可见，默认判「放弃」。`);
+  setStatus(`放弃：地理纬度 ${alat.toFixed(1)}° < 50°`);
   return;
 }
   
