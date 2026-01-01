@@ -3,25 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>aurora-forecast</title>
-  <link rel="stylesheet" href="./style.css?v=8" />
+  <title>aurora-forecast v1.5</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <div class="wrap">
-    <h1>aurora-forecast</h1>
-    <p class="sub">
-      输入经纬度 + 当地时间（含时区），输出未来 72 小时「五档决策表」。
-    </p>
+    <div class="topbar">
+      <div>
+        <h1>aurora-forecast <span class="tag">v1.5</span></h1>
+        <p class="sub">输入经纬度 + 当地时间（含时区），输出未来 72 小时 <b>0–10 分</b> 极光行动建议表盘（低云一票否决）。</p>
+      </div>
+      <div class="mini">
+        <div id="status" class="status">就绪</div>
+        <div id="dataNote" class="dataNote"></div>
+      </div>
+    </div>
 
     <div class="card">
       <div class="grid">
         <label>
           纬度 Latitude
-          <input id="lat" type="number" step="0.0001" placeholder="例如 65.01" />
+          <input id="lat" type="number" step="0.0001" placeholder="例如 53.47（漠河附近）" />
         </label>
         <label>
           经度 Longitude
-          <input id="lon" type="number" step="0.0001" placeholder="例如 -18.75" />
+          <input id="lon" type="number" step="0.0001" placeholder="例如 122.35" />
         </label>
 
         <label>
@@ -44,21 +50,31 @@
       </div>
 
       <div class="actions">
-        <button id="run">生成 72h 决策表</button>
-        <span id="status"></span>
+        <button id="run">生成 72h 表盘</button>
+        <button id="swap" class="ghost" title="交换经纬度（防止填反）">交换经纬度</button>
       </div>
 
-      <details class="hint">
-        <summary>如何查看经纬度？（不调用地图）</summary>
-        <div class="hint-body">
-          <p>在 Google / Apple / 高德地图里：长按你的位置 → 详情里会显示「纬度, 经度」。复制填进来即可。</p>
-        </div>
-      </details>
+      <div class="hint">
+        <details>
+          <summary>如何查看经纬度？</summary>
+          <div class="hint-body">
+            <p>在地图 App（Google/Apple/高德）里长按位置，详情通常会显示「纬度, 经度」。复制填入即可。</p>
+            <p>⚠️ 常见错误：把经纬度填反。一般纬度在 -90~90，经度在 -180~180。</p>
+          </div>
+        </details>
+      </div>
     </div>
 
     <div id="out" class="out"></div>
+
+    <div class="footer">
+      <div class="legend" id="legend"></div>
+      <small class="small">
+        说明：0 分为低云一票否决或低纬默认放弃。≥8 分代表“可见条件已解锁”（V≥450、Bt≥7、N≥3 同时满足）。
+      </small>
+    </div>
   </div>
 
-  <script src="./app.js?v=8"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
