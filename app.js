@@ -1,808 +1,722 @@
-// Aurora Decision v2.2
-// - 加入太阳高度：>0° 一票否决；夜窗门槛 -12°
-// - 每个Tab内有分级说明
-// - 所有结论/状态放大
-// - 72h 依据增加“日冕洞与日冕物质抛射模型 / 太阳风送达能力综合模型”分析（人话+代理）
+/* aurora-decision v2.3
+ * - 前台不展示任何“太阳/夜窗/太阳高度”字样，但后台参与可观测判定
+ * - 若不在可观测暗夜窗口：任何模块均不会输出“可蹲守/强烈推荐”等，直接压到“不可观测”
+ * - 失败不弹窗：走 status/tips 文本提示 + cache 回退
+ */
 
 const $ = (id) => document.getElementById(id);
 
-const H1_MINUTES = 60;
-const H1_STEP = 10;
-const DAYS = 3;
+const UI = {
+  lat: $('lat'),
+  lon: $('lon'),
+  btnRun: $('btnRun'),
+  btnMag: $('btnMag'),
+  status: $('status'),
+  tips: $('tips'),
 
-function setStatus(s){ $('status').textContent = s; }
-function setNote(s){ $('note').textContent = s || ''; }
+  oneHeadline: $('oneHeadline'),
+  oneLocalTime: $('oneLocalTime'),
+  oneOvation: $('oneOvation'),
+  swLine: $('swLine'),
+  swSmall: $('swSmall'),
+  oneRows: $('oneRows'),
 
-function pad(n){ return String(n).padStart(2,'0'); }
-function fmtLocal(d){
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  threeState: $('threeState'),
+  threeExplain: $('threeExplain'),
+  p2Score: $('p2Score'),
+  p2Explain: $('p2Explain'),
+  cloudNow: $('cloudNow'),
+  cloudExplain: $('cloudExplain'),
+
+  daysRows: $('daysRows'),
+};
+
+const tabs = [...document.querySelectorAll('.tab')];
+tabs.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabs.forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const id = btn.dataset.tab;
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+    $(id).classList.add('show');
+  });
+});
+
+function setStatus(t){ UI.status.textContent = t || ''; }
+function setTips(t){ UI.tips.innerHTML = t || ''; }
+
+function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
+function fmt1(x){ return (x===null||x===undefined||Number.isNaN(x)) ? '—' : (Math.round(x*10)/10).toFixed(1); }
+function fmt2(x){ return (x===null||x===undefined||Number.isNaN(x)) ? '—' : (Math.round(x*100)/100).toFixed(2); }
+
+function fmtLocal(dt){
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,'0');
+  const d = String(dt.getDate()).padStart(2,'0');
+  const hh = String(dt.getHours()).padStart(2,'0');
+  const mm = String(dt.getMinutes()).padStart(2,'0');
+  return `${y}-${m}-${d} ${hh}:${mm}`;
 }
-function fmtHM(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-function addMin(d, m){ return new Date(d.getTime() + m*60000); }
-function addHour(d, h){ return new Date(d.getTime() + h*3600000); }
 
-function cacheSet(key, obj){ try{ localStorage.setItem(key, JSON.stringify(obj)); }catch{} }
-function cacheGet(key){ try{ const t=localStorage.getItem(key); return t?JSON.parse(t):null; }catch{ return null; } }
-function fmtAge(ms){
-  const m = Math.round(ms/60000);
-  if (m < 60) return `${m} 分钟前`;
-  const h = m/60;
-  return `${h.toFixed(h < 10 ? 1 : 0)} 小时前`;
-}
-async function fetchJSONWithFallback(url, label, cacheKey, notes){
-  const now = Date.now();
+function cacheSet(key, obj){
   try{
-    const res = await fetch(url, { cache:'no-store' });
-    if(!res.ok) throw new Error(String(res.status));
-    const text = await res.text();
-    if(!text) throw new Error('empty');
-    const data = JSON.parse(text);
-    cacheSet(cacheKey, { ts: now, data });
-    notes.push(`✅ ${label} 已更新`);
-    return { data, ts: now, stale:false };
-  }catch(e){
-    const c = cacheGet(cacheKey);
-    if(c?.data){
-      notes.push(`⚠️ ${label}接口暂时无法拉取目前数据，将使用此前最新数据做解析（${fmtAge(now-c.ts)}）`);
-      return { data:c.data, ts:c.ts, stale:true };
-    }
-    notes.push(`❌ ${label}接口无法拉取，且本地无历史缓存`);
-    return { data:null, ts:null, stale:true };
-  }
+    const payload = { ts: Date.now(), v: obj };
+    localStorage.setItem(key, JSON.stringify(payload));
+  }catch(e){}
+}
+function cacheGet(key){
+  try{
+    const raw = localStorage.getItem(key);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function fmtAge(ms){
+  const m = Math.floor(ms/60000);
+  if(m<60) return `${m}min`;
+  const h = Math.floor(m/60);
+  const mm = m%60;
+  return `${h}h${mm}m`;
 }
 
-// ---------- 太阳高度（简化天文算法：足够用于 0°/-12° 门槛判断） ----------
-function deg2rad(x){ return x*Math.PI/180; }
-function rad2deg(x){ return x*180/Math.PI; }
-
-function julianDay(date){
-  // UTC
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth()+1;
-  const D = date.getUTCDate()
-    + (date.getUTCHours() + (date.getUTCMinutes() + date.getUTCSeconds()/60)/60)/24;
-
-  let A = Math.floor((14 - m)/12);
-  let Y = y + 4800 - A;
-  let M = m + 12*A - 3;
-
-  let JDN = Math.floor(D)
-    + Math.floor((153*M + 2)/5)
-    + 365*Y
-    + Math.floor(Y/4)
-    - Math.floor(Y/100)
-    + Math.floor(Y/400)
-    - 32045;
-
-  // add fractional day
-  const frac = D - Math.floor(D);
-  return JDN + frac - 0.5;
+/* ====== Backend-only: 可观测暗夜判定（不在UI展示任何相关字样） ======
+   规则：太阳高度 > 0 直接否决
+        可观测窗口：太阳高度 <= -12
+ */
+function isObservableNow(date, lat, lon){
+  const alt = solarAltitudeDeg(date, lat, lon); // deg
+  return alt <= -12;
 }
-
-function solarElevationDeg(date, lat, lon){
-  // Based on common NOAA-style approximations (good enough for twilight thresholds)
-  // date: JS Date (local ok) but we compute using UTC inside
-  const jd = julianDay(date);
-  const T = (jd - 2451545.0)/36525.0;
-
-  // Sun mean longitude
-  let L0 = 280.46646 + T*(36000.76983 + T*0.0003032);
-  L0 = ((L0 % 360) + 360) % 360;
-
-  // Sun mean anomaly
-  const M = 357.52911 + T*(35999.05029 - 0.0001537*T);
-
-  // eccentricity
-  const e = 0.016708634 - T*(0.000042037 + 0.0000001267*T);
-
-  // equation of center
-  const C = (1.914602 - T*(0.004817 + 0.000014*T))*Math.sin(deg2rad(M))
-          + (0.019993 - 0.000101*T)*Math.sin(deg2rad(2*M))
-          + 0.000289*Math.sin(deg2rad(3*M));
-
-  const trueLong = L0 + C;
-
-  // apparent longitude
-  const omega = 125.04 - 1934.136*T;
-  const lambda = trueLong - 0.00569 - 0.00478*Math.sin(deg2rad(omega));
-
-  // obliquity
-  const eps0 = 23 + (26 + ((21.448 - T*(46.815 + T*(0.00059 - T*0.001813))))/60)/60;
-  const eps = eps0 + 0.00256*Math.cos(deg2rad(omega));
-
-  // declination
-  const sinDec = Math.sin(deg2rad(eps))*Math.sin(deg2rad(lambda));
-  const dec = rad2deg(Math.asin(sinDec));
-
-  // equation of time (minutes)
-  const y = Math.tan(deg2rad(eps/2))*Math.tan(deg2rad(eps/2));
-  const Etime = 4 * rad2deg(
-    y*Math.sin(2*deg2rad(L0)) - 2*e*Math.sin(deg2rad(M))
-    + 4*e*y*Math.sin(deg2rad(M))*Math.cos(2*deg2rad(L0))
-    - 0.5*y*y*Math.sin(4*deg2rad(L0))
-    - 1.25*e*e*Math.sin(2*deg2rad(M))
-  );
-
-  // true solar time
-  const utcMin = date.getUTCHours()*60 + date.getUTCMinutes() + date.getUTCSeconds()/60;
-  const tst = (utcMin + Etime + 4*lon) % 1440; // lon east positive
-  const ha = (tst/4 < 0) ? (tst/4 + 180) : (tst/4 - 180); // hour angle in degrees
-
-  // elevation
-  const latRad = deg2rad(lat);
-  const decRad = deg2rad(dec);
-  const haRad = deg2rad(ha);
-
-  const sinEl = Math.sin(latRad)*Math.sin(decRad) + Math.cos(latRad)*Math.cos(decRad)*Math.cos(haRad);
-  let el = rad2deg(Math.asin(sinEl));
-
-  // crude refraction correction near horizon (optional, keep simple)
-  if(el > -1 && el < 90){
-    const refr = 1.02 / Math.tan(deg2rad(el + 10.3/(el+5.11))) / 60; // deg
-    el += refr;
-  }
-  return el;
-}
-
-function lightGateLabel(el){
-  if(el > 0) return '白天（不可观测）';
-  if(el > -12) return '暮光（可见性很差）';
-  return '夜窗（可拍）';
-}
-
-// ---------- NOAA ----------
-async function fetchOvation(notes){
-  const url = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json';
-  const r = await fetchJSONWithFallback(url, 'OVATION(30–90min)', 'cache_ovation_latest', notes);
-  return r.data || null;
-}
-
-async function fetchSWPC2h(notes){
-  const magUrl = 'https://services.swpc.noaa.gov/products/solar-wind/mag-2-hour.json';
-  const plasmaUrl = 'https://services.swpc.noaa.gov/products/solar-wind/plasma-2-hour.json';
-
-  const magR = await fetchJSONWithFallback(magUrl, 'NOAA磁场', 'cache_mag_2h', notes);
-  const plaR = await fetchJSONWithFallback(plasmaUrl, 'NOAA等离子体', 'cache_plasma_2h', notes);
-  if(!magR.data || !plaR.data) return null;
-
-  const mag = magR.data, plasma = plaR.data;
-  const magH = mag[0], plaH = plasma[0];
-
-  const magRows = mag.slice(1).map(row => Object.fromEntries(magH.map((k,i)=>[k,row[i]])));
-  const plaRows = plasma.slice(1).map(row => Object.fromEntries(plaH.map((k,i)=>[k,row[i]])));
-
-  const map = new Map();
-
-  for(const r of magRows){
-    const t = r.time_tag || r.time || r.timestamp;
-    if(!t) continue;
-    if(!map.has(t)) map.set(t, { time: new Date(t+'Z') });
-    map.get(t).bt = Number(r.bt);
-    map.get(t).bz = Number(r.bz_gsm ?? r.bz);
-  }
-
-  const pick = (obj, keys) => {
-    for(const k of keys){
-      const v = obj[k];
-      if(v !== undefined && v !== null && v !== '') return Number(v);
-    }
-    return NaN;
-  };
-
-  for(const r of plaRows){
-    const t = r.time_tag || r.time || r.timestamp;
-    if(!t) continue;
-    if(!map.has(t)) map.set(t, { time: new Date(t+'Z') });
-    map.get(t).v = pick(r, ['speed','flow_speed','V','v']);
-    map.get(t).n = pick(r, ['density','proton_density','N','n']);
-  }
-
-  const series = Array.from(map.values())
-    .filter(x => x.time instanceof Date && !isNaN(x.time))
-    .sort((a,b)=>a.time-b.time);
-
-  return { series };
-}
-
-async function fetchKpForecast(notes){
-  const url = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json';
-  const r = await fetchJSONWithFallback(url, 'Kp三日预报', 'cache_kp_3day', notes);
-  return r.data || null;
-}
-
-// ---------- 云量 ----------
-async function fetchClouds3Days(lat, lon, notes){
-  const url = new URL('https://api.open-meteo.com/v1/forecast');
-  url.searchParams.set('latitude', String(lat));
-  url.searchParams.set('longitude', String(lon));
-  url.searchParams.set('hourly', 'cloud_cover_low,cloud_cover_mid,cloud_cover_high');
-  url.searchParams.set('forecast_days', String(DAYS));
-  url.searchParams.set('timezone', 'auto');
-
-  const r = await fetchJSONWithFallback(url.toString(), '云量', 'cache_cloud_3d', notes);
-  const j = r.data;
-  if(!j?.hourly?.time) return null;
-
-  const h = j.hourly;
-  return h.time.map((t,i)=>({
-    timeLocal: new Date(t),
-    low: Number(h.cloud_cover_low?.[i] ?? NaN),
-    mid: Number(h.cloud_cover_mid?.[i] ?? NaN),
-    high:Number(h.cloud_cover_high?.[i] ?? NaN),
-  }));
-}
-
-// ---------- helpers ----------
-function mean(arr){
-  const v = arr.filter(x=>Number.isFinite(x));
-  if(!v.length) return NaN;
-  return v.reduce((a,b)=>a+b,0)/v.length;
-}
-function std(arr){
-  const v = arr.filter(x=>Number.isFinite(x));
-  if(v.length<2) return NaN;
-  const m = mean(v);
-  const s2 = v.reduce((a,b)=>a+(b-m)*(b-m),0)/(v.length-1);
-  return Math.sqrt(s2);
-}
-
-// ---------- OVATION point ----------
-function ovationValueAt(ovation, lat, lon){
-  if(!ovation?.coordinates?.length) return NaN;
-  const lonN = ((lon % 360) + 360) % 360;
-  const lonI = Math.round(lonN);
-  const latI = Math.round(lat);
-  if(latI < -90 || latI > 90) return NaN;
-  const idx = (latI + 90) * 360 + lonI;
-  const p = ovation.coordinates[idx]?.[2];
-  return Number(p);
-}
-
-// ---------- features ----------
-function computeFeatures(series){
-  if(!series?.length) return null;
-  const last = series[series.length-1];
-  const t0 = last.time;
-
-  const w120 = series.filter(x => (t0 - x.time) <= 120*60*1000);
-  const w60  = series.filter(x => (t0 - x.time) <= 60*60*1000);
-
-  let bzMinutes = 0;
-  for(let i=w120.length-1;i>=0;i--){
-    const bz = w120[i].bz;
-    if(!Number.isFinite(bz)) break;
-    if(bz <= -2) bzMinutes++;
-    else break;
-  }
-
-  const bzTouches = w60.filter(x => Number.isFinite(x.bz) && x.bz <= -1.0).length;
-
-  let flips = 0;
-  let prev = null;
-  for(const x of w60){
-    if(!Number.isFinite(x.bz)) continue;
-    const s = x.bz >= 0 ? 1 : -1;
-    if(prev !== null && s !== prev) flips++;
-    prev = s;
-  }
-  const bzSaw = flips >= 7;
-
-  const btArr = w60.map(x=>x.bt);
-  const vArr  = w60.map(x=>x.v);
-  const nArr  = w60.map(x=>x.n);
-
-  const btMean = mean(btArr);
-  const btStd  = std(btArr);
-  const vMean  = mean(vArr);
-  const nMean  = mean(nArr);
-
-  const btPlatform = (btMean >= 5.5) && (btStd <= 1.8);
-  const vOk = vMean >= 400;
-  const nBack = nMean >= 1.6;
-  const nRebounds = w60.filter(x=>Number.isFinite(x.n) && x.n >= 3).length >= 4;
-  const hadStrongBz = w60.some(x=>Number.isFinite(x.bz) && x.bz <= -4);
-
-  // deliver score 0..3（用于72h“兑现度参考”）
-  const deliverCount = (btPlatform?1:0) + (vOk?1:0) + ((nBack||nRebounds)?1:0);
-
-  return {
-    now:last,
-    t0,
-    bzMinutes,
-    bzTouches,
-    bzSaw,
-    btMean, btStd, btPlatform,
-    vMean, vOk,
-    nMean, nBack, nRebounds,
-    hadStrongBz,
-    deliverCount
-  };
-}
-
-// ---------- 3h state machine ----------
-function classifyState(f){
-  if(!f?.now) return { state:'未知', reason:['缺少近实时太阳风数据'] };
-
-  const { bzMinutes, btPlatform, vOk, nBack, nRebounds, bzSaw, bzTouches, hadStrongBz } = f;
-  const p2Count = (btPlatform?1:0) + (vOk?1:0) + ((nBack||nRebounds)?1:0);
-  const deliverReady = p2Count >= 2;
-
-  if(deliverReady && (bzMinutes >= 8 || (Number.isFinite(f.now.bz) && f.now.bz <= -3))){
-    return {
-      state:'爆发进行中',
-      reason:[
-        `触发成立：Bz南向持续≈${bzMinutes}min（或出现更强南向）`,
-        `太阳风送达能力综合模型：${p2Count}/3 成立`,
-        `锯齿：${bzSaw ? '偏明显（但仍在爆发态）' : '不明显'}`
-      ]
-    };
-  }
-
-  if((hadStrongBz || bzTouches >= 18) && bzMinutes < 2 && (bzSaw || !btPlatform)){
-    return {
-      state:'爆发后衰落期',
-      reason:[
-        `近1h 发生过较强南向/频繁触及（触及≈${bzTouches}）`,
-        `当前连续南向不足（≈${bzMinutes}min）`,
-        `平台/方向趋于松散（锯齿或平台破坏）`
-      ]
-    };
-  }
-
-  if(deliverReady && bzTouches >= 6){
-    return {
-      state:'爆发概率上升',
-      reason:[
-        `太阳风送达能力综合模型：${p2Count}/3 成立（“更容易发生”）`,
-        `Bz 近1h 多次触及南向（触及≈${bzTouches}）`,
-        `尚未形成持续触发（连续<8min）`
-      ]
-    };
-  }
-
-  return {
-    state:'静默',
-    reason:[
-      `太阳风送达能力综合模型：${p2Count}/3（不足以支撑爆发态）`,
-      `Bz 触及南向偏少（≈${bzTouches}）`,
-      `建议：只在出现持续南向时再提高关注`
-    ]
-  };
-}
-
-// ---------- 1h scoring（5档） ----------
-function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
-
-function scoreTo5(score10, sunEl){
-  if(sunEl > 0) return '不可观测';
-  if(score10 >= 8.5) return '强烈推荐';
-  if(score10 >= 6.8) return '值得出门';
-  if(score10 >= 5.0) return '可蹲守';
-  if(score10 >= 3.0) return '低概率';
-  return '不建议';
-}
-
-function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
-function dotColorByLabel(label){
-  if(label === '不可观测') return getCSS('--g0');
-  if(label === '强烈推荐') return getCSS('--g3');
-  if(label === '值得出门') return getCSS('--g2');
-  if(label === '可蹲守') return getCSS('--g1');
-  if(label === '低概率') return getCSS('--y1');
-  return getCSS('--r2');
-}
-
-function score1h(prob, f, minutesAhead, sunEl){
-  // 太阳高度 >0：一票否决
-  if(sunEl > 0){
-    return { score10: 0.0, label: '不可观测' };
-  }
-
-  // 更松底盘
-  const ovBase = Number.isFinite(prob) ? clamp((prob/30)*10, 0, 10) : 0;
-
-  let floor = 0;
-  if(f?.btPlatform || f?.vOk) floor = 2.0;
-  if((f?.btPlatform && f?.vOk) || (f?.nBack || f?.nRebounds)) floor = 3.0;
-  if((f?.bzTouches ?? 0) >= 10) floor = Math.max(floor, 3.6);
-
-  let base = Math.max(ovBase, floor);
-
-  let trigger = 0;
-  if(f?.bzMinutes >= 8 && (f?.now?.bz ?? 0) <= -2) trigger += 2.2;
-  else if((f?.bzTouches ?? 0) >= 8) trigger += 1.4;
-  else if((f?.bzTouches ?? 0) >= 4) trigger += 0.8;
-
-  if(f?.bzSaw) trigger -= 0.6;
-
-  // 时间衰减
-  const decay = Math.exp(-minutesAhead / 55);
-  let s = base + trigger * decay;
-
-  // 暮光区（0 到 -12）：强制降权（但不否决）
-  if(sunEl > -12){
-    s *= 0.45; // 很难看见，但给“还有一点点可能”以免全0
-  }
-
-  s = clamp(s, 0, 10);
-  const label = scoreTo5(s, sunEl);
-  return { score10: Number(s.toFixed(1)), label };
-}
-
-// ---------- 72h summarize ----------
-function parseKpForecast(kpJson){
-  if(!Array.isArray(kpJson) || kpJson.length < 2) return [];
-  const header = kpJson[0];
-  const rows = kpJson.slice(1).map(r => Object.fromEntries(header.map((k,i)=>[k,r[i]])));
-  return rows.map(r => ({
-    time: new Date((r.time_tag || r.time || r.timestamp) + 'Z'),
-    kp: Number(r.kp ?? r.Kp ?? r['Kp Index'] ?? NaN)
-  })).filter(x => x.time instanceof Date && !isNaN(x.time) && Number.isFinite(x.kp));
-}
-
-function dayKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-
-function cloudWindowOK(hour){
-  // 低云一票否决（<=10 才算窗口）
-  return Number.isFinite(hour.low) && hour.low <= 10;
-}
-
-function bestWindowForDay(dayClouds, lat, lon){
-  // 只在“夜窗（<=-12）”里选最佳云量小时
-  let best = null;
-  for(const h of dayClouds){
-    const el = solarElevationDeg(h.timeLocal, lat, lon);
-    if(el > -12) continue; // 夜窗门槛
-    if(!cloudWindowOK(h)) continue;
-
-    // 更偏好 mid/high 更低（但不苛刻）
-    const mid = Number.isFinite(h.mid) ? h.mid : 100;
-    const high = Number.isFinite(h.high) ? h.high : 100;
-    const score = (100 - mid)*0.6 + (100 - high)*0.4; // 越大越好
-
-    if(!best || score > best.score){
-      best = { h, el, score };
-    }
-  }
-  return best;
-}
-
-function hasNightWindow(dayClouds, lat, lon){
-  // 是否存在连续>=2小时 太阳高度<=-12（按小时数据粗判）
-  const nightFlags = dayClouds.map(h => solarElevationDeg(h.timeLocal, lat, lon) <= -12);
-  let run = 0;
-  for(const f of nightFlags){
-    run = f ? run+1 : 0;
-    if(run >= 2) return true;
+function dayHasAnyObservableHours(dateLocalMidnight, lat, lon){
+  // 对当天做小时采样，判断是否存在 alt <= -12 的时段
+  for(let h=0; h<24; h++){
+    const d = new Date(dateLocalMidnight.getTime());
+    d.setHours(h,0,0,0);
+    if(isObservableNow(d, lat, lon)) return true;
   }
   return false;
 }
 
-function chanceFromKp(kpVal){
-  if(!Number.isFinite(kpVal)) return '低可能';
-  if(kpVal >= 6) return '可能性高';
-  if(kpVal >= 5) return '有窗口';
-  if(kpVal >= 4) return '小概率';
-  return '低可能';
+/* ====== Solar position (approx) ======
+   返回太阳高度角（度）
+   参考常用近似算法：基于儒略日 + 太阳赤纬 + 时角
+*/
+function solarAltitudeDeg(date, latDeg, lonDeg){
+  // 使用UTC时间
+  const d = new Date(date.getTime());
+  const jd = toJulian(d);
+  const n = jd - 2451545.0;
+
+  const L = norm360(280.460 + 0.9856474*n);
+  const g = deg2rad(norm360(357.528 + 0.9856003*n));
+  const lambda = deg2rad(norm360(L + 1.915*Math.sin(g) + 0.020*Math.sin(2*g)));
+
+  const eps = deg2rad(23.439 - 0.0000004*n);
+  const sinDec = Math.sin(eps)*Math.sin(lambda);
+  const dec = Math.asin(sinDec);
+
+  // 近似格林尼治恒星时（度）
+  const T = (jd - 2451545.0)/36525.0;
+  let GMST = 280.46061837 + 360.98564736629*(jd - 2451545.0) + 0.000387933*T*T - (T*T*T)/38710000;
+  GMST = norm360(GMST);
+  const LST = deg2rad(norm360(GMST + lonDeg));
+
+  // 太阳赤经
+  const alpha = Math.atan2(Math.cos(eps)*Math.sin(lambda), Math.cos(lambda));
+  const H = wrapPi(LST - alpha); // hour angle
+
+  const lat = deg2rad(latDeg);
+  const alt = Math.asin(Math.sin(lat)*Math.sin(dec) + Math.cos(lat)*Math.cos(dec)*Math.cos(H));
+  return rad2deg(alt);
 }
 
-function deliverText(deliverCount){
-  // deliverCount 0..3
-  if(deliverCount >= 3) return '送达能力偏强（更容易把能量背景兑现到可观测事件）';
-  if(deliverCount === 2) return '送达能力中等（需要等待触发条件配合）';
-  if(deliverCount === 1) return '送达能力偏弱（就算有背景也可能“雷声大雨点小”）';
-  return '送达能力很弱（更像静默）';
+function toJulian(date){
+  return (date.getTime()/86400000) + 2440587.5;
+}
+function deg2rad(x){ return x*Math.PI/180; }
+function rad2deg(x){ return x*180/Math.PI; }
+function norm360(x){
+  let v = x % 360;
+  if(v<0) v += 360;
+  return v;
+}
+function wrapPi(x){
+  // wrap to [-pi, pi]
+  let v = x;
+  while(v > Math.PI) v -= 2*Math.PI;
+  while(v < -Math.PI) v += 2*Math.PI;
+  return v;
 }
 
-function summarize72h(kpSeries, clouds, lat, lon, f){
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0);
+/* ====== Data fetchers with cache fallback, no alert ====== */
 
-  const deliverCount = f?.deliverCount ?? 0;
+async function fetchText(url){
+  const r = await fetch(url, { cache:'no-store' });
+  return await r.text();
+}
 
-  const days = [];
-  for(let i=0;i<DAYS;i++){
-    const d0 = addHour(start, i*24);
-    const key = dayKey(d0);
+async function fetchJSON(url){
+  const r = await fetch(url, { cache:'no-store' });
+  const t = await r.text();
+  if(!t) throw new Error('empty');
+  return JSON.parse(t);
+}
 
-    const kpMax = Math.max(...kpSeries.filter(x => dayKey(x.time)===key).map(x=>x.kp), -Infinity);
-    const kpVal = Number.isFinite(kpMax) ? kpMax : NaN;
+/** NOAA SWPC solar-wind JSON (2-hour) */
+async function fetchSWPC2h(notes){
+  const magUrl = 'https://services.swpc.noaa.gov/products/solar-wind/mag-2-hour.json';
+  const plasmaUrl = 'https://services.swpc.noaa.gov/products/solar-wind/plasma-2-hour.json';
+  let mag, plasma;
 
-    const dayClouds = (clouds||[]).filter(x => dayKey(x.timeLocal)===key);
-    const nightOK = hasNightWindow(dayClouds, lat, lon);
-    const best = bestWindowForDay(dayClouds, lat, lon);
-
-    // 72h 结论：能量背景（代理）+ 夜窗 + 云窗
-    let chance = chanceFromKp(kpVal);
-    if(!nightOK) {
-      // 没夜窗就算kp高也很难“观测/拍摄”
-      chance = '不可观测';
-    } else if(!best) {
-      // 有夜窗但云窗差：降一级（但不直接否决）
-      if(chance === '可能性高') chance = '有窗口';
-      else if(chance === '有窗口') chance = '小概率';
-      else if(chance === '小概率') chance = '低可能';
-    }
-
-    const explain = [];
-
-    // 模型名要求：写“日冕洞与日冕物质抛射模型 / 太阳风送达能力综合模型”
-    if(Number.isFinite(kpVal)){
-      explain.push(`日冕洞与日冕物质抛射模型：以三日Kp预报峰值≈${kpVal.toFixed(1)} 作为“能量背景代理”（越高越有戏）`);
+  try{
+    const [tMag, tPlasma] = await Promise.all([fetchText(magUrl), fetchText(plasmaUrl)]);
+    if(!tMag || !tPlasma) throw new Error('empty');
+    mag = JSON.parse(tMag);
+    plasma = JSON.parse(tPlasma);
+    cacheSet('cache_noaa_mag', mag);
+    cacheSet('cache_noaa_plasma', plasma);
+    notes.push('✅ NOAA 数据已更新');
+  }catch(e){
+    const cMag = cacheGet('cache_noaa_mag');
+    const cPlasma = cacheGet('cache_noaa_plasma');
+    if(cMag && cPlasma){
+      mag = cMag.v; plasma = cPlasma.v;
+      const age = fmtAge(Date.now() - (Math.min(cMag.ts, cPlasma.ts)));
+      notes.push(`⚠️ NOAA 暂不可用，使用缓存数据（${age}）`);
     }else{
-      explain.push('日冕洞与日冕物质抛射模型：Kp预报缺失（能量背景不明，按保守处理）');
+      notes.push('❌ NOAA 暂不可用，且无缓存可用');
+      return null;
     }
-
-    explain.push(`太阳风送达能力综合模型：当前为 ${deliverCount}/3 → ${deliverText(deliverCount)}`);
-
-    // 夜窗与太阳门槛
-    explain.push(nightOK ? '太阳高度：存在夜窗（<= -12°）' : '太阳高度：无夜窗（<= -12°），当日观测基本不可行');
-
-    // 云窗
-    if(best){
-      const h = best.h;
-      const el = best.el;
-      explain.push(`云量窗口：${fmtHM(h.timeLocal)} 更好（Low=${h.low} Mid=${h.mid} High=${h.high}；太阳高度≈${el.toFixed(1)}°）`);
-    } else {
-      explain.push('云量窗口：夜窗内未找到 Low<=10 的小时（更像“拍不到”）');
-    }
-
-    days.push({ date:key, chance, explain });
   }
+
+  // 取最新一行
+  const magHeader = mag[0];
+  const magRows = mag.slice(1).map(row => {
+    const o = {};
+    magHeader.forEach((k,i)=>o[k]=row[i]);
+    return o;
+  });
+
+  const plasmaHeader = plasma[0];
+  const plasmaRows = plasma.slice(1).map(row => {
+    const o = {};
+    plasmaHeader.forEach((k,i)=>o[k]=row[i]);
+    return o;
+  });
+
+  const lastMag = magRows[magRows.length-1] || {};
+  const lastPlasma = plasmaRows[plasmaRows.length-1] || {};
+
+  const Bt = parseFloat(lastMag.bt);
+  const Bz = parseFloat(lastMag.bz_gsm);
+  const V = parseFloat(lastPlasma.speed);
+  const N = parseFloat(lastPlasma.density);
+
+  return {
+    Bt: isFinite(Bt)?Bt:null,
+    Bz: isFinite(Bz)?Bz:null,
+    V: isFinite(V)?V:null,
+    N: isFinite(N)?N:null,
+    tMag: lastMag.time_tag || null,
+    tPlasma: lastPlasma.time_tag || null,
+    magRows,
+    plasmaRows
+  };
+}
+
+/** OVATION nowcast aurora probability (0-100) */
+async function fetchOvationNowcast(lat, lon, notes){
+  const url = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json';
+  try{
+    const j = await fetchJSON(url);
+    cacheSet('cache_ovation', j);
+    notes.push('✅ OVATION 已更新');
+    return pickOvation(j, lat, lon);
+  }catch(e){
+    const c = cacheGet('cache_ovation');
+    if(c){
+      const age = fmtAge(Date.now()-c.ts);
+      notes.push(`⚠️ OVATION 暂不可用，使用缓存（${age}）`);
+      return pickOvation(c.v, lat, lon);
+    }
+    notes.push('⚠️ OVATION 暂不可用');
+    return null;
+  }
+}
+
+function pickOvation(j, lat, lon){
+  // ovation_aurora_latest.json 是一张格点表：latitudes, longitudes, values (prob)
+  // 结构常见为：{ "Observation Time": "...", "Forecast Time": "...", "coordinates":[{"lat":..,"lon":..,"probability":..}, ...] }
+  // 兼容不同字段：优先 coordinates 数组
+  try{
+    if(Array.isArray(j.coordinates)){
+      let best = null;
+      let bestD = 1e9;
+      for(const p of j.coordinates){
+        const d = (p.lat-lat)*(p.lat-lat) + (p.lon-lon)*(p.lon-lon);
+        if(d < bestD){
+          bestD = d; best = p;
+        }
+      }
+      if(!best) return null;
+      return { prob: best.probability ?? best.prob ?? null, t: j["Forecast Time"] || j["Observation Time"] || null };
+    }
+  }catch(e){}
+  return null;
+}
+
+/** Kp 3-day forecast (NOAA JSON) */
+async function fetchKpForecast(notes){
+  const url = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json';
+  try{
+    const j = await fetchJSON(url);
+    cacheSet('cache_kp', j);
+    notes.push('✅ Kp 预报已更新');
+    return j;
+  }catch(e){
+    const c = cacheGet('cache_kp');
+    if(c){
+      const age = fmtAge(Date.now()-c.ts);
+      notes.push(`⚠️ Kp 预报暂不可用，使用缓存（${age}）`);
+      return c.v;
+    }
+    notes.push('⚠️ Kp 预报暂不可用');
+    return null;
+  }
+}
+
+/** Cloud forecast (Open-Meteo) */
+async function fetchCloud48h(lat, lon, notes){
+  // 用 hourly: cloudcover_low/mid/high + time
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&hourly=cloudcover_low,cloudcover_mid,cloudcover_high&timezone=auto`;
+  try{
+    const j = await fetchJSON(url);
+    cacheSet('cache_cloud', j);
+    notes.push('✅ 云量预报已更新');
+    return j;
+  }catch(e){
+    const c = cacheGet('cache_cloud');
+    if(c){
+      const age = fmtAge(Date.now()-c.ts);
+      notes.push(`⚠️ 云量暂不可用，使用缓存（${age}）`);
+      return c.v;
+    }
+    notes.push('⚠️ 云量暂不可用');
+    return null;
+  }
+}
+
+/* ====== Magnetic latitude (rough) ======
+   用一个“粗略近似”满足用户快速判断：磁纬 ≈ 地理纬度 + Δ(经度) 的简化不是严谨模型
+   这里改成更稳的：直接给“粗略磁纬估计”，并强调是估计（不弹窗）。
+   ——你后续如果要更准，可以接 IGRF / WMM，但那需要后端或更大数据表
+*/
+function approxMagLat(lat, lon){
+  // 极粗：给一个小偏移（只为了挡上海这种），别用于科研
+  const lonFactor = Math.sin(deg2rad(lon)) * 3.0;
+  return lat + lonFactor;
+}
+
+/* ====== Scoring models ====== */
+
+/** 1小时：10分钟粒度。输出5档结论 + 0-10分
+    逻辑：用上游实时（V,Bt,Bz,N）+ OVATION概率 + 触发衰减
+ */
+function model1h(now, lat, lon, sw, ovationProb){
+  // 先做后台可观测门槛
+  const observable = isObservableNow(now, lat, lon);
+
+  // 没有太阳风数据也要能跑：降权
+  const V = sw?.V;
+  const Bt = sw?.Bt;
+  const Bz = sw?.Bz;
+  const N = sw?.N;
+
+  // 基础分：来自 OVATION(0-100) 映射到 0~4
+  const baseFromOva = ovationProb==null ? 1.2 : clamp((ovationProb/100)*4.0, 0, 4.0);
+
+  // 触发分：Bz越负越好，Bt越高越好
+  let trigger = 0;
+  if(isFinite(Bz)) trigger += clamp((-Bz)/6.0, 0, 1.6);     // -6nT ~ +1.6
+  if(isFinite(Bt)) trigger += clamp((Bt-5)/6.0, 0, 1.6);    // Bt>=11 -> +1.0~1.6
+  if(isFinite(V))  trigger += clamp((V-420)/200.0, 0, 1.2); // 420~620
+  if(isFinite(N))  trigger += clamp((N-2)/6.0, 0, 1.0);     // 2~8
+
+  // 让它别太严苛：给一点“背景分”
+  let scoreNow = baseFromOva + trigger + 0.6;
+
+  // 轻微衰减：未来每10分钟降低 0~20%
+  const rows = [];
+  for(let i=0; i<=60; i+=10){
+    const t = new Date(now.getTime() + i*60000);
+    const decay = Math.pow(0.92, i/10); // 10min -> 0.92
+    let s = scoreNow * decay;
+
+    // 后台门槛：不可观测直接压到 0
+    if(!observable) s = 0;
+
+    const cls = classify1h(s, observable);
+    rows.push({ t, score: s, cls });
+  }
+
+  return { observable, rows, headline: rows[0].cls.label, headlineDot: rows[0].cls.dot, headlineScore: rows[0].score };
+}
+
+function classify1h(score, observable){
+  // observable=false 已经 score=0，但这里再保险
+  if(!observable) return { label:'不可观测', dot:'bad' };
+
+  if(score >= 7.8) return { label:'强烈推荐', dot:'good' };
+  if(score >= 6.4) return { label:'值得出门', dot:'good' };
+  if(score >= 5.0) return { label:'可蹲守', dot:'warn' };
+  if(score >= 2.8) return { label:'低概率', dot:'warn' };
+  return { label:'不可观测', dot:'bad' };
+}
+
+/** 3小时：状态机 + 模型解释（更“人话”） */
+function model3h(now, lat, lon, sw, cloudNow){
+  const observable = isObservableNow(now, lat, lon);
+
+  const V = sw?.V, Bt = sw?.Bt, Bz = sw?.Bz, N = sw?.N;
+
+  // “送达能力综合模型” (2/3成立那种) —— 但别太苛刻
+  let okBt = isFinite(Bt) ? (Bt >= 6.2) : false;
+  let okV  = isFinite(V)  ? (V  >= 440) : false;
+  let okN  = isFinite(N)  ? (N  >= 2.2) : false;
+  const pass = [okBt, okV, okN].filter(Boolean).length;
+
+  let p2Text = `${pass}/3 成立`;
+  let p2Explain = `Bt平台${okBt?'✅':'⚠️'} · 速度背景${okV?'✅':'⚠️'} · 密度结构${okN?'✅':'⚠️'}`;
+
+  // 云：低云一票否决；中高云给提示（不否决）
+  let cloudLine = '—';
+  let cloudExplain = '—';
+  let cloudPenalty = 0;
+
+  if(cloudNow){
+    const low = cloudNow.low, mid = cloudNow.mid, high = cloudNow.high;
+    cloudLine = `Low ${Math.round(low)}% | Mid ${Math.round(mid)}% | High ${Math.round(high)}%`;
+
+    // 低云否决
+    if(low > 10){
+      cloudPenalty = 999; // 直接打死
+      cloudExplain = `低云偏高（建议 ≤10%）；中云更佳 ≤50%；高云更佳 ≤80%。`;
+    }else{
+      // 只做轻微惩罚
+      if(mid > 50) cloudPenalty += 1.2;
+      if(high > 80) cloudPenalty += 0.8;
+
+      cloudExplain = `更佳参考：中云 ≤50%（越低越好）；高云 ≤80%（薄幕可接受）。`;
+    }
+  }
+
+  // 状态机：爆发进行中 / 概率上升 / 衰落期 / 静默
+  // 定义：Bz持续负向算触发；但我们没做持续分钟级历史，这里用“当前阈值”弱化处理
+  const trigNow = (isFinite(Bz) && Bz <= -3.0) && (isFinite(Bt) && Bt >= 6.5);
+  const baseOk = pass >= 2;
+
+  let state = '静默';
+  let explain = '背景不足或缺关键触发，建议先观望。';
+
+  if(trigNow && baseOk){
+    state = '爆发进行中';
+    explain = '触发条件更明确，短时内值得马上看。';
+  }else if(baseOk && (isFinite(Bz) && Bz <= -2.0)){
+    state = '爆发概率上升';
+    explain = '系统更容易发生，但还未形成稳定触发。';
+  }else if(baseOk){
+    state = '爆发后衰落期';
+    explain = '背景仍在，但缺稳定触发，整体更偏走弱。';
+  }
+
+  // 云量否决：直接压到不可观测（但不告诉用户原因是云）
+  if(cloudPenalty >= 999){
+    state = '不可观测';
+    explain = '当前不具备观测条件。';
+  }
+
+  // 后台门槛：不可观测统一压死
+  if(!observable){
+    state = '不可观测';
+    explain = '当前不具备观测条件。';
+  }
+
+  return { observable, state, explain, p2Text, p2Explain, cloudLine, cloudExplain };
+}
+
+/** 72小时：按天给结论（用Kp + 两个模型的“背景代理” + 云量） */
+function model72h(now, lat, lon, sw, kpJson, cloudJson){
+  const days = [];
+
+  // 解析 Kp 预报：JSON 是二维数组，header在0行
+  let kpByDate = {};
+  if(Array.isArray(kpJson) && kpJson.length > 1){
+    const header = kpJson[0];
+    const idxTime = header.indexOf('time_tag');
+    const idxKp = header.indexOf('kp');
+    for(let i=1;i<kpJson.length;i++){
+      const row = kpJson[i];
+      const t = new Date(row[idxTime]);
+      const dateKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+      const kp = parseFloat(row[idxKp]);
+      if(!isFinite(kp)) continue;
+      kpByDate[dateKey] = Math.max(kpByDate[dateKey] || 0, kp);
+    }
+  }
+
+  // 云量：挑每一天“最好的一个小时”的 Low/Mid/High 作为窗口代表
+  let bestCloudByDate = {};
+  if(cloudJson?.hourly?.time){
+    const times = cloudJson.hourly.time;
+    const lowArr = cloudJson.hourly.cloudcover_low;
+    const midArr = cloudJson.hourly.cloudcover_mid;
+    const highArr = cloudJson.hourly.cloudcover_high;
+
+    for(let i=0;i<times.length;i++){
+      const t = new Date(times[i]);
+      const dateKey = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+      const low = lowArr[i], mid = midArr[i], high = highArr[i];
+
+      // 只在“可观测暗夜”小时里找最佳（后台过滤，前台不展示原因）
+      if(!isObservableNow(t, lat, lon)) continue;
+
+      // 评分：低云权重最大
+      const cloudScore = (100 - low)*1.2 + (100 - mid)*0.6 + (100 - high)*0.3;
+      const prev = bestCloudByDate[dateKey];
+      if(!prev || cloudScore > prev.cloudScore){
+        bestCloudByDate[dateKey] = { low, mid, high, cloudScore, t };
+      }
+    }
+  }
+
+  // 取今起3天
+  const d0 = new Date(now.getTime());
+  d0.setHours(0,0,0,0);
+
+  for(let d=0; d<3; d++){
+    const day = new Date(d0.getTime() + d*86400000);
+    const dateKey = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+
+    // 当天是否存在任何可观测小时（后台过滤）
+    const hasAnyObs = dayHasAnyObservableHours(day, lat, lon);
+
+    // Kp
+    const kpMax = kpByDate[dateKey] || null;
+
+    // P1（这里用Kp做能量背景代理，后续你可以替换成CH/CME评分）
+    // P2（用当前太阳风背景当代理：Bt、V、N）
+    const Bt = sw?.Bt, V = sw?.V, N = sw?.N;
+    const p2pass = [isFinite(Bt)&&Bt>=6.2, isFinite(V)&&V>=440, isFinite(N)&&N>=2.2].filter(Boolean).length;
+
+    // 云窗口
+    const cloudBest = bestCloudByDate[dateKey] || null;
+
+    // 结论计算
+    let label = '低可能';
+    let dot = 'bad';
+
+    // 如果当天根本没有任何可观测暗夜小时：直接不可观测（但不展示太阳原因）
+    if(!hasAnyObs){
+      label = '不可观测';
+      dot = 'bad';
+    }else{
+      // 基础：Kp背景
+      const kp = isFinite(kpMax) ? kpMax : 0;
+      // 云量：低云>10 就不太行
+      let cloudOk = cloudBest ? (cloudBest.low <= 10) : true;
+      // 综合
+      const score = (kp>=6?2:(kp>=5?1.5:(kp>=4?1:0.6))) + (p2pass>=2?1.3:0.7) + (cloudOk?1.0:0.4);
+
+      if(score >= 3.6){ label='可能性高'; dot='good'; }
+      else if(score >= 3.0){ label='有窗口'; dot='warn'; }
+      else if(score >= 2.4){ label='小概率'; dot='warn'; }
+      else { label='低可能'; dot='bad'; }
+    }
+
+    // 依据（必须包含两个模型分析 + Kp + 云）
+    const parts = [];
+
+    if(kpMax!=null) parts.push(`Kp背景：峰值≈${fmt1(kpMax)}`);
+    else parts.push(`Kp背景：暂无可用数据`);
+
+    // “日冕洞与CME模型” —— v2.3 先用 Kp 代理输出（你后续接 CH/CME 再替换）
+    parts.push(`日冕洞与日冕物质抛射模型：以Kp作为能量背景代理（值越高越有戏）`);
+
+    // “送达能力综合模型”
+    parts.push(`太阳风送达能力综合模型：${p2pass}/3 成立（Bt/速度/密度）`);
+
+    if(cloudBest){
+      parts.push(`云量窗口：Low≈${Math.round(cloudBest.low)} Mid≈${Math.round(cloudBest.mid)} High≈${Math.round(cloudBest.high)}`);
+    }else{
+      parts.push(`云量窗口：暂无可用数据`);
+    }
+
+    days.push({ dateKey, label, dot, reason: parts.join(' · ') });
+  }
+
   return days;
 }
 
-// ---------- render ----------
-function renderLegends(){
-  $('legend1h').innerHTML = `
-    <h3>1小时结论分级说明（5档）</h3>
-    <ul>
-      <li><b>不可观测</b>：太阳高度 > 0°（白天），直接否决。</li>
-      <li><b>强烈推荐</b>：夜窗内，综合条件很强，值得立即行动。</li>
-      <li><b>值得出门</b>：夜窗内，中高概率；建议出门或提前到位。</li>
-      <li><b>可蹲守</b>：夜窗内，条件有但不稳；建议架好设备、盯触发变化。</li>
-      <li><b>低概率</b>：夜窗内，小概率；只建议低成本尝试。</li>
-      <li><b>不建议</b>：夜窗内但整体偏弱；不值得投入成本。</li>
-      <li>注：若处于 <b>暮光（0° 到 -12°）</b>，会自动大幅降权（仍可能保留“低概率/可蹲守”的提示）。</li>
-    </ul>
-  `;
+/* ====== Render ====== */
 
-  $('legend3h').innerHTML = `
-    <h3>3小时状态分级说明（4态）</h3>
-    <ul>
-      <li><b>爆发进行中</b>：触发条件已成立，短时内最值得盯。</li>
-      <li><b>爆发概率上升</b>：系统更容易发生，但还没到“持续触发”。</li>
-      <li><b>爆发后衰落期</b>：刚过爆发，余温在掉；更像“还能撑一会儿”。</li>
-      <li><b>静默</b>：背景不足或触发很弱；更像等下一波。</li>
-      <li>注：若当前太阳高度 > 0°，虽然系统状态仍会计算，但<b>观测/摄影不可行</b>。</li>
-    </ul>
-  `;
-
-  $('legend72h').innerHTML = `
-    <h3>72小时结论分级说明（按天）</h3>
-    <ul>
-      <li><b>不可观测</b>：当日无夜窗（太阳高度<=-12°的连续窗口不足），基本拍不了。</li>
-      <li><b>可能性高 / 有窗口 / 小概率 / 低可能</b>：综合“能量背景代理 + 送达能力参考 + 夜窗 + 云窗”的范围判断。</li>
-      <li>注：72小时是“范围预测”，不输出具体时间点；时间点由 1小时/3小时模块决定。</li>
-    </ul>
-  `;
+function pill(label, dot){
+  return `<span class="pill"><span class="dot ${dot}"></span>${label}</span>`;
 }
 
-function render1h(lat, lon, ovation, f){
-  const box = $('out1h');
-  const now = new Date();
-  const prob = ovationValueAt(ovation, lat, lon);
+function render1h(m1, ovation){
+  UI.oneLocalTime.textContent = `本地时间：${fmtLocal(new Date())}`;
+  UI.oneOvation.textContent = `OVATION：${ovation==null ? '—' : `${Math.round(ovation)}%`}`;
 
-  const rows = [];
-  for(let m=0;m<=H1_MINUTES;m+=H1_STEP){
-    const t = addMin(now, m);
-    const el = solarElevationDeg(t, lat, lon);
-    const r = score1h(prob, f, m, el);
-    rows.push({ t, el, light: lightGateLabel(el), ...r });
+  UI.oneHeadline.textContent = m1.headline;
+
+  UI.oneRows.innerHTML = m1.rows.map(r => {
+    return `
+      <div class="r">
+        <div>${fmtLocal(r.t)}</div>
+        <div>${pill(r.cls.label, r.cls.dot)}</div>
+        <div class="right"><span class="score">${fmt1(r.score)}</span></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSW(sw){
+  if(!sw){
+    UI.swLine.textContent = `V — | Bt — | Bz — | N —`;
+    UI.swSmall.textContent = `—`;
+    return;
   }
-
-  const head = rows[0] || { score10:0.0, label:'不建议', el:0 };
-  const elNow = solarElevationDeg(now, lat, lon);
-
-  box.innerHTML = `
-    <div class="row">
-      <div class="kpi">
-        <div class="t">当前建议（1小时内，10分钟粒度）</div>
-        <div class="v">${head.label}</div>
-        <div class="s">
-          本地时间：${fmtLocal(now)} ｜ 太阳高度≈${elNow.toFixed(1)}°（${lightGateLabel(elNow)}）
-          ｜ OVATION 近似概率：${Number.isFinite(prob)?`${prob}%`:'—'}
-        </div>
-      </div>
-
-      <div class="kpi">
-        <div class="t">实时太阳风（近实时）</div>
-        <div class="v">
-          ${f?.now ? `V ${Number.isFinite(f.now.v)?f.now.v:'—'} ｜ Bt ${Number.isFinite(f.now.bt)?f.now.bt:'—'} ｜ Bz ${Number.isFinite(f.now.bz)?f.now.bz:'—'} ｜ N ${Number.isFinite(f.now.n)?f.now.n:'—'}` : '—'}
-        </div>
-        <div class="s">${f ? `Bz连续南向≈${f.bzMinutes}min ｜ 触及≈${f.bzTouches} ｜ 锯齿:${f.bzSaw?'是':'否'}` : '缺少太阳风数据'}</div>
-      </div>
-    </div>
-
-    <table class="table" style="margin-top:10px">
-      <thead>
-        <tr>
-          <th>时间（本地）</th>
-          <th>太阳</th>
-          <th>结论</th>
-          <th>参考分(0-10)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map(x=>`
-          <tr>
-            <td class="time">${fmtLocal(x.t)}</td>
-            <td class="pill">${x.light}</td>
-            <td class="judge">
-              <span class="badge"><span class="dot" style="background:${dotColorByLabel(x.label)}"></span>${x.label}</span>
-            </td>
-            <td><span class="pill">${x.score10}</span></td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
+  UI.swLine.textContent = `V ${fmt1(sw.V)} | Bt ${fmt2(sw.Bt)} | Bz ${fmt2(sw.Bz)} | N ${fmt2(sw.N)}`;
+  const t = sw.tPlasma || sw.tMag;
+  UI.swSmall.textContent = t ? `NOAA 时间：${t}` : `—`;
 }
 
-function render3h(stateObj, f, lat, lon){
-  const box = $('out3h');
-  const now = new Date();
-  const elNow = solarElevationDeg(now, lat, lon);
-  const light = lightGateLabel(elNow);
+function render3h(m3){
+  UI.threeState.textContent = m3.state;
+  UI.threeExplain.textContent = m3.explain;
 
-  const color =
-    stateObj.state.includes('进行中') ? getCSS('--g3') :
-    stateObj.state.includes('上升') ? getCSS('--g2') :
-    stateObj.state.includes('衰落') ? getCSS('--y1') :
-    stateObj.state.includes('静默') ? getCSS('--r2') : getCSS('--g0');
+  UI.p2Score.textContent = m3.p2Text;
+  UI.p2Explain.textContent = m3.p2Explain;
 
-  const p2Count = f?.deliverCount ?? 0;
-
-  // 太阳>0°：观测否决，但状态仍显示（给用户解释）
-  const obsLabel = (elNow > 0) ? '不可观测' : '可观测窗口内';
-  const obsColor = (elNow > 0) ? getCSS('--g0') : getCSS('--g2');
-
-  box.innerHTML = `
-    <div class="row">
-      <div class="kpi">
-        <div class="t">观测门槛（太阳）</div>
-        <div class="v"><span class="badge"><span class="dot" style="background:${obsColor}"></span>${obsLabel}</span></div>
-        <div class="s">太阳高度≈${elNow.toFixed(1)}°（${light}）｜门槛：>0° 否决；夜窗：<= -12°</div>
-      </div>
-
-      <div class="kpi">
-        <div class="t">系统状态（未来3小时不分分钟）</div>
-        <div class="v"><span class="badge"><span class="dot" style="background:${color}"></span>${stateObj.state}</span></div>
-        <div class="s">${stateObj.reason.map(x=>`• ${x}`).join('<br/>')}</div>
-      </div>
-
-      <div class="kpi">
-        <div class="t">太阳风送达能力综合模型</div>
-        <div class="v">${f ? `${p2Count}/3 成立` : '—'}</div>
-        <div class="s">
-          ${f ? `Bt平台:${f.btPlatform?'✅':'⚠️'}（均值≈${Number.isFinite(f.btMean)?f.btMean.toFixed(1):'—'}）
-          ｜ 速度:${f.vOk?'✅':'⚠️'}（≈${Number.isFinite(f.vMean)?f.vMean.toFixed(0):'—'}）
-          ｜ 密度:${(f.nBack||f.nRebounds)?'✅':'⚠️'}（≈${Number.isFinite(f.nMean)?f.nMean.toFixed(1):'—'}）`
-          : '缺少太阳风数据'}
-        </div>
-      </div>
-    </div>
-  `;
+  UI.cloudNow.textContent = m3.cloudLine;
+  UI.cloudExplain.textContent = m3.cloudExplain;
 }
 
-function render72h(days){
-  const box = $('out72h');
-  box.innerHTML = `
-    <table class="table">
-      <thead>
-        <tr>
-          <th>日期（本地）</th>
-          <th>结论</th>
-          <th>依据（人话）</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${days.map(d=>`
-          <tr>
-            <td class="time">${d.date}</td>
-            <td class="judge">
-              <span class="badge"><span class="dot" style="background:${
-                d.chance === '不可观测' ? getCSS('--g0') :
-                d.chance.includes('高')?getCSS('--g3'):
-                d.chance.includes('窗口')?getCSS('--g2'):
-                d.chance.includes('小')?getCSS('--y1'):getCSS('--r2')
-              }"></span>${d.chance}</span>
-            </td>
-            <td style="text-align:left">${d.explain.map(x=>`• ${x}`).join('<br/>')}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
+function render72(days){
+  UI.daysRows.innerHTML = days.map(d => {
+    return `
+      <div class="r">
+        <div>${d.dateKey}</div>
+        <div>${pill(d.label, d.dot)}</div>
+        <div class="metaSmall">${escapeHTML(d.reason)}</div>
+      </div>
+    `;
+  }).join('');
+}
+function escapeHTML(s){
+  return (s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 }
 
-// ---------- Tabs ----------
-function switchTab(id){
-  document.querySelectorAll('.tab').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tab === id);
-  });
-  document.querySelectorAll('.panel').forEach(p=>{
-    p.classList.toggle('active', p.id === id);
-  });
-}
+/* ====== Main run ====== */
 
-// ---------- main ----------
 async function run(){
-  const lat = Number($('lat').value);
-  const lon = Number($('lon').value);
-  if(!Number.isFinite(lat) || lat < -90 || lat > 90){ setStatus('纬度应在 -90 到 90'); return; }
-  if(!Number.isFinite(lon) || lon < -180 || lon > 180){ setStatus('经度应在 -180 到 180'); return; }
+  const lat = parseFloat(UI.lat.value);
+  const lon = parseFloat(UI.lon.value);
 
-  $('run').disabled = true;
-  setStatus('拉取数据中…');
-  setNote('');
-
-  try{
-    const notes = [];
-    const [ovation, swpc, kpJ, clouds] = await Promise.all([
-      fetchOvation(notes),
-      fetchSWPC2h(notes),
-      fetchKpForecast(notes),
-      fetchClouds3Days(lat, lon, notes),
-    ]);
-
-    setNote(notes.join('｜'));
-
-    const f = swpc?.series ? computeFeatures(swpc.series) : null;
-
-    // 1h
-    if(ovation){
-      render1h(lat, lon, ovation, f);
-    }else{
-      $('out1h').innerHTML = 'OVATION 数据不可用（无缓存则无法生成 1 小时精准预测）。';
-    }
-
-    // 3h
-    const st = classifyState(f);
-    render3h(st, f, lat, lon);
-
-    // 72h
-    const kpSeries = kpJ ? parseKpForecast(kpJ) : [];
-    const days = summarize72h(kpSeries, clouds, lat, lon, f);
-    render72h(days);
-
-    renderLegends();
-
-    setStatus(`完成｜本地时间：${fmtLocal(new Date())}`);
-  }catch(e){
-    setStatus(`异常：${String(e?.message || e)}`);
-  }finally{
-    $('run').disabled = false;
+  if(!isFinite(lat) || !isFinite(lon)){
+    setStatus('请先输入有效的经纬度。');
+    return;
   }
+
+  // 地理纬度硬门槛（你之前说下限 50）
+  if(Math.abs(lat) < 50){
+    // 不弹窗：直接写到页面提示
+    setStatus('');
+    setTips(`<b>提示：</b>你的位置纬度较低（|lat| < 50°），极光摄影基本不可行，将直接给出“不可观测”。`);
+  }else{
+    setTips('');
+  }
+
+  UI.btnRun.disabled = true;
+  setStatus('正在拉取数据并计算…');
+
+  const notes = [];
+  const now = new Date();
+
+  // 低纬直接压死：但仍允许生成页面（对普通用户更直观）
+  const lowLatHard = Math.abs(lat) < 50;
+
+  const sw = await fetchSWPC2h(notes);
+  const kp = await fetchKpForecast(notes);
+  const cloud = await fetchCloud48h(lat, lon, notes);
+
+  const ov = await fetchOvationNowcast(lat, lon, notes);
+  const ovProb = ov?.prob ?? null;
+
+  // 计算云量“当前值”（最近一小时）
+  let cloudNow = null;
+  if(cloud?.hourly?.time){
+    const times = cloud.hourly.time.map(t => new Date(t).getTime());
+    const idx = nearestIndex(times, now.getTime());
+    cloudNow = {
+      low: cloud.hourly.cloudcover_low[idx],
+      mid: cloud.hourly.cloudcover_mid[idx],
+      high: cloud.hourly.cloudcover_high[idx],
+      t: new Date(times[idx])
+    };
+  }
+
+  // 1h/3h/72h
+  let m1 = model1h(now, lat, lon, sw, ovProb);
+  let m3 = model3h(now, lat, lon, sw, cloudNow);
+  let d72 = model72h(now, lat, lon, sw, kp, cloud);
+
+  // 低纬硬门槛：直接覆盖所有输出为不可观测
+  if(lowLatHard){
+    m1.rows.forEach(r => { r.score = 0; r.cls = { label:'不可观测', dot:'bad' }; });
+    m1.headline = '不可观测';
+
+    m3.state = '不可观测';
+    m3.explain = '当前不具备观测条件。';
+
+    d72 = d72.map(x => ({...x, label:'不可观测', dot:'bad', reason: '纬度偏低，极光摄影基本不可行。'}));
+  }
+
+  renderSW(sw);
+  render1h(m1, ovProb);
+  render3h(m3);
+  render72(d72);
+
+  // status：合并提示（不弹窗）
+  setStatus(notes.join('｜') || '完成');
+  UI.btnRun.disabled = false;
 }
 
-function swapLatLon(){
-  const a = $('lat').value;
-  $('lat').value = $('lon').value;
-  $('lon').value = a;
+function nearestIndex(arr, target){
+  let best = 0, bestD = Infinity;
+  for(let i=0;i<arr.length;i++){
+    const d = Math.abs(arr[i]-target);
+    if(d < bestD){ bestD=d; best=i; }
+  }
+  return best;
 }
 
-window.addEventListener('DOMContentLoaded', ()=>{
-  document.querySelectorAll('.tab').forEach(btn=>{
-    btn.addEventListener('click', ()=>switchTab(btn.dataset.tab));
-  });
+/* ====== Misc button: magnetic latitude ====== */
+function showMagLat(){
+  const lat = parseFloat(UI.lat.value);
+  const lon = parseFloat(UI.lon.value);
+  if(!isFinite(lat) || !isFinite(lon)){
+    setStatus('请先输入有效的经纬度。');
+    return;
+  }
+  const mlat = approxMagLat(lat, lon);
+  setStatus(`磁纬估计：约 ${fmt1(mlat)}°（粗略估计，用于快速决策）`);
+}
 
-  $('run').addEventListener('click', run);
-  $('swap').addEventListener('click', swapLatLon);
+UI.btnRun.addEventListener('click', run);
+UI.btnMag.addEventListener('click', showMagLat);
 
-  // 默认测试点（你可改）
-  $('lat').value = '53.47';
-  $('lon').value = '122.35';
-
-  renderLegends();
-});
+// 给一点默认值方便你测试
+if(!UI.lat.value) UI.lat.value = '53.47';
+if(!UI.lon.value) UI.lon.value = '122.35';
+setStatus('准备就绪：输入经纬度后点击“生成即时预测”。');
