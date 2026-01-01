@@ -28,7 +28,7 @@ body{
 .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
 h1{margin:0;font-size:22px}
 .tag{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:999px;margin-left:8px}
-.sub{margin:8px 0 0;color:var(--muted);max-width:720px;line-height:1.35}
+.sub{margin:8px 0 0;color:var(--muted);max-width:760px;line-height:1.35}
 .right{min-width:300px}
 .status{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text)}
 .note{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.35}
@@ -111,16 +111,15 @@ h2{margin:0 0 10px;font-size:16px;color:var(--text)}
   flex:1;
 }
 .kpi .t{color:var(--muted);font-size:12px;margin-bottom:8px}
-
-/* 放大结论 */
+/* 所有结论放大 */
 .kpi .v{
-  font-size:22px;
-  font-weight:700;
+  font-size:28px;
+  font-weight:800;
   letter-spacing:.2px;
 }
 .kpi .s{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.45}
 
-.table{border-collapse:collapse;width:100%;min-width:720px}
+.table{border-collapse:collapse;width:100%;min-width:760px}
 .table th,.table td{
   border-top:1px solid rgba(255,255,255,0.06);
   padding:12px 10px;
@@ -135,26 +134,22 @@ h2{margin:0 0 10px;font-size:16px;color:var(--text)}
   color:var(--muted);
   font-weight:600;
 }
-
-/* 放大时间列 */
 .table td.time{
   font-size:14px;
-  font-weight:700;
-  letter-spacing:.2px;
+  font-weight:800;
 }
-
-/* 放大结论列 */
 .table td.judge{
   font-size:14px;
-  font-weight:700;
+  font-weight:900;
 }
 
 .badge{
   display:inline-flex;align-items:center;gap:8px;
   border:1px solid var(--line);
   padding:6px 12px;border-radius:999px;
-  color:var(--muted);
-  font-size:12px;
+  color:var(--text);
+  font-size:14px;
+  font-weight:900;
   background:#0f1420;
 }
 .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
@@ -167,21 +162,24 @@ h2{margin:0 0 10px;font-size:16px;color:var(--text)}
   background:#0f1420;
   font-size:13px;
   color:var(--text);
-  font-weight:700;
+  font-weight:800;
 }
 
-.explain{
-  margin-top:14px;
+/* Per-tab legend */
+.legend{
+  margin-top:10px;
   border:1px solid var(--line);
   border-radius:14px;
-  background:#0c1220;
+  background:#0f1420;
   padding:12px;
 }
-.explain h3{margin:0 0 8px;font-size:14px}
-.explain ul{margin:0 0 0 18px;color:var(--muted);font-size:12px;line-height:1.55}
+.legend h3{margin:0 0 8px;font-size:13px;color:var(--text)}
+.legend ul{margin:0 0 0 18px;color:var(--muted);font-size:12px;line-height:1.55}
+.legend b{color:var(--text)}
+
 .footer{margin:14px 0 24px;color:var(--muted)}
 
 @media (max-width:860px){
   .right{min-width:0}
-  .table{min-width:640px}
+  .table{min-width:660px}
 }
