@@ -355,3 +355,84 @@ canvas{width:100% !important; height:100% !important}
   .subtitle{line-height:1.4}
   .brandRow{align-items:flex-start}
 }
+
+/* ========== 强提示 Modal ========== */
+.modalOverlay{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+}
+.modalOverlay.show{ display:flex; }
+
+.modalCard{
+  width: min(640px, 92vw);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: linear-gradient(180deg, rgba(20,28,52,.92), rgba(10,14,26,.92));
+  box-shadow: 0 22px 80px rgba(0,0,0,.70);
+  overflow: hidden;
+}
+.modalHead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.modalTitle{
+  font-weight: 800;
+  letter-spacing:.2px;
+}
+.modalX{
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.9);
+  cursor: pointer;
+}
+.modalX:hover{ background: rgba(255,255,255,.10); }
+
+.modalBody{
+  padding: 14px 16px 2px;
+  color: rgba(255,255,255,.88);
+  line-height: 1.55;
+  font-size: 14px;
+}
+.modalBody .mutedLine{ color: rgba(255,255,255,.60); font-size: 12px; margin-top: 8px; }
+.modalFoot{
+  padding: 14px 16px 16px;
+  display:flex;
+  justify-content:flex-end;
+}
+
+/* ========== 3小时云量：评分+明细换行（明细更小） ========== */
+.cloudDetail{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,.62);
+}
+
+/* ========== 72小时：表格里的“结论”更大一点 ========== */
+.tbl td .badge{
+  font-size: 14px;
+  padding: 7px 12px;
+}
+.tbl td .badge .bDot{
+  width: 9px;
+  height: 9px;
+}
+
+/* ========== 所有选项卡最下面注释（explain）字体更小 ========== */
+.explain .bullets{
+  font-size: 11px;
+  line-height: 1.55;
+}
