@@ -1,57 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <title>Aurora Forecast</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont;
-      background: #0b1020;
-      color: #e6e8ff;
-      padding: 40px;
-    }
-    h1 {
-      color: #8bdcff;
-    }
-    .box {
-      margin-top: 20px;
-      padding: 20px;
-      background: #141a33;
-      border-radius: 12px;
-      max-width: 480px;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 8px;
-      border: none;
-    }
-    button {
-      background: #5b7cff;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>aurora-forecast</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <h1>🌌 Aurora Forecast</h1>
-
-  <div class="box">
-    <label>Latitude</label>
-    <input placeholder="e.g. 69.6">
-
-    <label>Longitude</label>
-    <input placeholder="e.g. 18.9">
-
-    <label>Local time</label>
-    <input placeholder="2026-01-01 22:00">
-
-    <button>Get forecast</button>
-
-    <p style="margin-top: 16px; opacity: 0.7;">
-      Forecast model coming soon.
+  <div class="wrap">
+    <h1>aurora-forecast</h1>
+    <p class="sub">
+      输入经纬度 + 当地时间（含时区），输出未来 72 小时「五档决策表」。
     </p>
+
+    <div class="card">
+      <div class="grid">
+        <label>
+          纬度 Latitude
+          <input id="lat" type="number" step="0.0001" placeholder="例如 65.01" />
+        </label>
+        <label>
+          经度 Longitude
+          <input id="lon" type="number" step="0.0001" placeholder="例如 -18.75" />
+        </label>
+
+        <label>
+          时区（UTC 偏移）
+          <select id="tz">
+            <option>UTC-12</option><option>UTC-11</option><option>UTC-10</option><option>UTC-9</option>
+            <option>UTC-8</option><option>UTC-7</option><option>UTC-6</option><option>UTC-5</option>
+            <option>UTC-4</option><option>UTC-3</option><option>UTC-2</option><option>UTC-1</option>
+            <option selected>UTC+0</option>
+            <option>UTC+1</option><option>UTC+2</option><option>UTC+3</option><option>UTC+4</option>
+            <option>UTC+5</option><option>UTC+6</option><option>UTC+7</option><option>UTC+8</option>
+            <option>UTC+9</option><option>UTC+10</option><option>UTC+11</option><option>UTC+12</option>
+          </select>
+        </label>
+
+        <label>
+          当地时间（YYYY-MM-DD HH:mm）
+          <input id="localTime" type="text" placeholder="例如 2026-01-01 22:30" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="run">生成 72h 决策表</button>
+        <span id="status"></span>
+      </div>
+
+      <details class="hint">
+        <summary>如何查看经纬度？（不调用地图）</summary>
+        <div class="hint-body">
+          <p>在 Google / Apple / 高德地图里：长按你的位置 → 详情里会显示「纬度, 经度」。复制填进来即可。</p>
+        </div>
+      </details>
+    </div>
+
+    <div id="out" class="out"></div>
   </div>
+
+  <script src="./app.js"></script>
 </body>
 </html>
