@@ -234,7 +234,7 @@ canvas{width:100% !important; height:100% !important}
   margin:8px 0 0;
   padding-left: 18px;
   color:var(--muted2);
-  font-size: 11.5px;      /* ↓ 你要的小一点 */
+  font-size: 11px;      /* ↓ 注释小一点 */
   line-height: 1.55;
 }
 .bullets b{color:var(--txt)}
@@ -270,29 +270,20 @@ canvas{width:100% !important; height:100% !important}
 .badge{
   display:inline-flex; align-items:center; gap:8px;
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 7px 12px;        /* 结论更大 */
   border:1px solid var(--stroke);
   background: rgba(0,0,0,.18);
   font-weight: 650;
+  font-size: 14px;          /* 结论更大 */
 }
 .badge .bDot{
-  width:8px; height:8px; border-radius:50%;
+  width:9px; height:9px; border-radius:50%;
   background: rgba(255,255,255,.35);
 }
 .badge.g .bDot{background: rgba(43,209,126,.95)}
 .badge.y .bDot{background: rgba(255,204,102,.95)}
 .badge.r .bDot{background: rgba(255,91,106,.95)}
 .badge.b .bDot{background: rgba(91,124,255,.95)}
-
-.scorePill{
-  display:inline-flex;
-  border-radius: 999px;
-  padding: 6px 10px;
-  border:1px solid var(--stroke);
-  background: rgba(255,255,255,.03);
-  color: rgba(255,255,255,.86);
-  font-weight: 700;
-}
 
 .foot{
   margin-top: 16px;
@@ -301,12 +292,12 @@ canvas{width:100% !important; height:100% !important}
   text-align:center;
 }
 
-/* Modal */
+/* 背景介绍 Modal（aboutModal） */
 .modal.hidden{display:none}
 .modal{
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: 9000;
 }
 .modalMask{
   position:absolute;
@@ -344,6 +335,13 @@ canvas{width:100% !important; height:100% !important}
 }
 .modalBody p{margin: 10px 0}
 
+/* 3小时云量：评分+明细换行（明细更小） */
+.cloudDetail{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,.62);
+}
+
 /* 手机适配 */
 @media (max-width: 820px){
   .wrap{width:min(980px, 94vw)}
@@ -355,9 +353,8 @@ canvas{width:100% !important; height:100% !important}
   .subtitle{line-height:1.4}
   .brandRow{align-items:flex-start}
 }
-
-/* ========== 强提示 Modal ========== */
-.modalOverlay{
+/* ========== NOAA 强提示弹窗（alertOverlay）完全独立，避免和 aboutModal 冲突 ========== */
+.alertOverlay{
   position: fixed;
   inset: 0;
   display: none;
@@ -368,9 +365,9 @@ canvas{width:100% !important; height:100% !important}
   backdrop-filter: blur(10px);
   z-index: 9999;
 }
-.modalOverlay.show{ display:flex; }
+.alertOverlay.show{ display:flex; }
 
-.modalCard{
+.alertCard{
   width: min(640px, 92vw);
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,.14);
@@ -378,7 +375,8 @@ canvas{width:100% !important; height:100% !important}
   box-shadow: 0 22px 80px rgba(0,0,0,.70);
   overflow: hidden;
 }
-.modalHead{
+
+.alertHead{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -386,10 +384,12 @@ canvas{width:100% !important; height:100% !important}
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
-.modalTitle{
+
+.alertTitle{
   font-weight: 800;
   letter-spacing:.2px;
 }
+
 .modalX{
   width: 36px;
   height: 36px;
@@ -401,67 +401,19 @@ canvas{width:100% !important; height:100% !important}
 }
 .modalX:hover{ background: rgba(255,255,255,.10); }
 
-.modalBody{
+.alertBody{
   padding: 14px 16px 2px;
   color: rgba(255,255,255,.88);
   line-height: 1.55;
   font-size: 14px;
 }
-.modalBody .mutedLine{ color: rgba(255,255,255,.60); font-size: 12px; margin-top: 8px; }
-.modalFoot{
+.alertBody .mutedLine{
+  color: rgba(255,255,255,.60);
+  font-size: 12px;
+  margin-top: 8px;
+}
+.alertFoot{
   padding: 14px 16px 16px;
   display:flex;
   justify-content:flex-end;
-}
-
-/* ========== 3小时云量：评分+明细换行（明细更小） ========== */
-.cloudDetail{
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(255,255,255,.62);
-}
-
-/* ========== 72小时：表格里的“结论”更大一点 ========== */
-.tbl td .badge{
-  font-size: 14px;
-  padding: 7px 12px;
-}
-.tbl td .badge .bDot{
-  width: 9px;
-  height: 9px;
-}
-
-/* ========== 所有选项卡最下面注释（explain）字体更小 ========== */
-.explain .bullets{
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-/* ====== 兜底：任何隐藏弹窗都必须彻底不占位、不拦截点击 ====== */
-.hidden{
-  display: none !important;
-}
-
-/* ====== aboutModal（背景介绍）兜底 ====== */
-#aboutModal{
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-}
-#aboutModal.hidden{
-  display: none !important;
-}
-#aboutModal .modalMask{
-  position: absolute;
-  inset: 0;
-}
-
-/* ====== alertOverlay（NOAA强提示）兜底：默认绝对不能拦截点击 ====== */
-#alertOverlay{
-  display: none !important;
-  pointer-events: none;
-}
-#alertOverlay.show{
-  display: flex !important;
-  pointer-events: auto;
 }
