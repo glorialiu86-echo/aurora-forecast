@@ -495,6 +495,7 @@ function renderLegend(){
 
 function renderTable(hoursUTC, tzStr, scores, details){
   const out = $('out');
+  renderDetails(hoursUTC, tz, scores, details);
   out.innerHTML = '';
 
   const wrap = document.createElement('div');
@@ -530,7 +531,6 @@ function renderTable(hoursUTC, tzStr, scores, details){
       td.className = 'cell';
       const hit = scores[i] === row;
       td.style.background = hit ? scoreColor(row) : '#0f1420';
-      td.title = (details[i] || []).join('\n');
       td.innerHTML = hit ? `<small>${row}</small>` : '';
       tr.appendChild(td);
     }
@@ -633,3 +633,38 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   renderLegend();
 });
+function renderDetails(hoursUTC, tzStr, scores, details){
+  const box = $('detailsPanel');
+  if (!box) return;
+
+  box.innerHTML = `<h3>每小时判读说明（按当地时间）</h3>`;
+
+  for (let i=0;i<scores.length;i++){
+    const timeStr = fmtLocalHour(hoursUTC[i], tzStr);
+    const score = scores[i];
+
+    // 你 detail 里是多行文字，我们挑最关键的前 6 条展示，避免太长
+    const lines = (details[i] || []).slice(0, 6);
+
+    const row = document.createElement('div');
+    row.className = 'hintRow';
+    row.innerHTML = `
+      <div class="hintTime">${timeStr}
+        <span class="hintScore">${score} 分</span>
+      </div>
+      <ul>
+        ${lines.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}
+      </ul>
+    `;
+    box.appendChild(row);
+  }
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#39;");
+}
