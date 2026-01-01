@@ -293,3 +293,13 @@ canvas{width:100% !important; height:100% !important}
   .chartWrap{height: 220px}
   .subtitle{line-height:1.4}
 }
+
+/* Tabs: only show active panel */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Tabs button active style (optional, keeps your current look) */
+.tab-btn.active {
+  border-color: rgba(120,160,255,.9);
+  background: rgba(120,160,255,.12);
+}
