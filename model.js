@@ -15,16 +15,8 @@
     miss_bt: 0.85,
     miss_v: 0.85,
   };
-  
-  function approxMagLat(lat, lon){
-    // 1) Prefer true AACGMv2 (if ready)
-    // Use typical aurora emission altitude ~110km for visibility modeling
-    try{
-      const a = window.AACGMV2?.convertLatLon?.(lat, lon, 110, new Date());
-      if(a && Number.isFinite(a.mlat)) return a.mlat;
-    }catch(e){ /* fall through */ }
 
-    // 2) Fallback: your original centered-dipole-like approximation (keeps app stable while wasm loads)
+  function approxMagLat(lat, lon){
     const poleLat = 80.65;
     const poleLon = -72.68;
     const toRad = (d)=>d*Math.PI/180;
