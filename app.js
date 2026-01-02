@@ -54,6 +54,176 @@
        ? window.UI.soften(f, ratio)
        : f;
 
+// ===============================
+// Cloud + 72h helper functions (stop-gap, stable)
+// ===============================
+
+function _omGetHourlyCloudArrays(openMeteoJson){
+  const h = openMeteoJson?.hourly;
+  if(!h) return null;
+
+  const times = Array.isArray(h.time) ? h.time : [];
+  const low  = Array.isArray(h.cloudcover_low)  ? h.cloudcover_low  : [];
+  const mid  = Array.isArray(h.cloudcover_mid)  ? h.cloudcover_mid  : [];
+  const high = Array.isArray(h.cloudcover_high) ? h.cloudcover_high : [];
+
+  if(!times.length) return null;
+  return { times, low, mid, high };
+}
+
+function _cloudTotal(low, mid, high){
+  const a = Number(low), b = Number(mid), c = Number(high);
+  // 如果有缺项，返回 Infinity，避免误判成“云量很棒”
+  if(!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) return Infinity;
+  return (a + b + c) / 3;
+}
+
+// 取 “未来3小时内” 云量最好的那个小时点（止血版：简单、稳）
+function bestCloud3h(openMeteoJson, baseDate){
+  const pack = _omGetHourlyCloudArrays(openMeteoJson);
+  if(!pack) return null;
+
+  const t0 = baseDate instanceof Date ? baseDate.getTime() : Date.now();
+  const t1 = t0 + 3 * 3600 * 1000;
+
+  let best = null;
+  let bestTotal = Infinity;
+
+  for(let i=0;i<pack.times.length;i++){
+    const ti = Date.parse(pack.times[i]);
+    if(!Number.isFinite(ti)) continue;
+    if(ti < t0 || ti > t1) continue;
+
+    const low = pack.low[i], mid = pack.mid[i], high = pack.high[i];
+    const total = _cloudTotal(low, mid, high);
+    if(total < bestTotal){
+      bestTotal = total;
+      best = {
+        ts: pack.times[i],
+        low: Math.round(Number(low)),
+        mid: Math.round(Number(mid)),
+        high: Math.round(Number(high)),
+        total: bestTotal
+      };
+    }
+  }
+
+  return best;
+}
+
+      // 云量评分（止血版）：按总云量分档
+      function cloudGradeFromBest(best){
+        if(!best || !Number.isFinite(best.total)) return "—";
+        const t = best.total;
+        if(t <= 30) return "优";
+        if(t <= 65) return "中";
+        return "差";
+      }
+      
+      // 未来3天（本地日历日）
+      function next3DaysLocal(baseDate){
+        const d0 = baseDate instanceof Date ? new Date(baseDate) : new Date();
+        d0.setHours(0,0,0,0);
+        return [0,1,2].map(k => new Date(d0.getTime() + k*24*3600*1000));
+      }
+      
+      // Kp 预报 → Map(dateKey -> maxKp)
+      function kpMaxByDay(kpJson){
+        // NOAA kp forecast json: first row header, others: [time_tag, kp, ...]
+        if(!Array.isArray(kpJson) || kpJson.length < 2) return null;
+      
+        const map = new Map();
+        for(let i=1;i<kpJson.length;i++){
+          const row = kpJson[i];
+          if(!Array.isArray(row) || row.length < 2) continue;
+      
+          const t = Date.parse(row[0]);
+          const kp = Number(row[1]);
+      
+          if(!Number.isFinite(t) || !Number.isFinite(kp)) continue;
+      
+          const key = (typeof fmtYMD === "function")
+            ? fmtYMD(new Date(t))
+            : new Date(t).toISOString().slice(0,10);
+      
+          const prev = map.get(key);
+          if(prev == null || kp > prev) map.set(key, kp);
+        }
+        return map;
+      }
+      
+      // 找某一天云量最好的小时点（用于 72h 表格里的“云量更佳点”）
+      function bestCloudHourForDay(openMeteoJson, dayDate){
+        const pack = _omGetHourlyCloudArrays(openMeteoJson);
+        if(!pack) return null;
+      
+        const d0 = dayDate instanceof Date ? new Date(dayDate) : new Date();
+        d0.setHours(0,0,0,0);
+        const start = d0.getTime();
+        const end = start + 24*3600*1000;
+      
+        let best = null;
+        let bestTotal = Infinity;
+      
+        for(let i=0;i<pack.times.length;i++){
+          const ti = Date.parse(pack.times[i]);
+          if(!Number.isFinite(ti)) continue;
+          if(ti < start || ti >= end) continue;
+      
+          const low = pack.low[i], mid = pack.mid[i], high = pack.high[i];
+          const total = _cloudTotal(low, mid, high);
+      
+          if(total < bestTotal){
+            bestTotal = total;
+            const hh = new Date(ti).getHours();
+            best = {
+              hh,
+              low: Math.round(Number(low)),
+              mid: Math.round(Number(mid)),
+              high: Math.round(Number(high)),
+              total: bestTotal
+            };
+          }
+        }
+      
+        return best;
+      }
+      
+      // 当天云量 → 0~1 分数（越晴越高）
+      function scoreCloudDay(openMeteoJson, dayDate){
+        const win = bestCloudHourForDay(openMeteoJson, dayDate);
+        if(!win || !Number.isFinite(win.total)) return 0.35; // 无数据时保守中低
+        const t = win.total;
+        if(t <= 30) return 1.0;
+        if(t <= 60) return 0.65;
+        if(t <= 85) return 0.35;
+        return 0.15;
+      }
+      
+      // 夜晚占比（止血版：用 SunCalc 算“日落到次日日出” / 24h，算不出就给个默认）
+      function estimateNightRatio(dayDate, lat, lon){
+        try{
+          if(!window.SunCalc) return 0.70;
+      
+          const d0 = new Date(dayDate);
+          d0.setHours(12,0,0,0); // 用当天中午求 times 稳一点
+      
+          const t = SunCalc.getTimes(d0, lat, lon);
+          const sunset = t?.sunset?.getTime?.() ? t.sunset.getTime() : null;
+      
+          const d1 = new Date(d0.getTime() + 24*3600*1000);
+          const t1 = SunCalc.getTimes(d1, lat, lon);
+          const sunrise = t1?.sunrise?.getTime?.() ? t1.sunrise.getTime() : null;
+      
+          if(!Number.isFinite(sunset) || !Number.isFinite(sunrise)) return 0.70;
+      
+          const nightMin = Math.max(0, (sunrise - sunset) / 60000);
+          return clamp(nightMin / 1440, 0.10, 1.00);
+        }catch(_){
+          return 0.70;
+        }
+      }
+
    // ---------- main run ----------
   async function run(){
     try{
