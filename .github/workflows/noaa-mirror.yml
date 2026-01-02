@@ -8,55 +8,88 @@ on:
 permissions:
   contents: write
 
+# 防止 5 分钟任务互相打架
+concurrency:
+  group: noaa-mirror
+  cancel-in-progress: true
+
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ checkout（拉完整历史，后面要 rebase）
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Fetch NOAA data (plasma + mag)
+      # 2️⃣ 强制对齐远端 main，保证工作区绝对干净
+      - name: Sync with remote main
         run: |
-          mkdir -p noaa
-          # plasma (solar wind)
-          curl -sSL "${{ secrets.NOAA_URL }}" -o noaa/plasma.raw.json
-          # mag (IMF)
-          curl -sSL "${{ secrets.NOAA_MAG_URL }}" -o noaa/mag.raw.json
+          git fetch origin main
+          git reset --hard origin/main
+          git clean -fd
 
-      - name: Wrap & validate
+      # 3️⃣ 拉 NOAA 数据（fail-fast）
+      - name: Fetch NOAA data (plasma + mag)
+        env:
+          NOAA_URL: ${{ secrets.NOAA_URL }}
+          NOAA_MAG_URL: ${{ secrets.NOAA_MAG_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p noaa
+
+          echo "NOAA_URL length: ${#NOAA_URL}"
+          echo "NOAA_MAG_URL length: ${#NOAA_MAG_URL}"
+
+          curl -fsSL "$NOAA_URL" -o noaa/plasma.raw.json
+          curl -fsSL "$NOAA_MAG_URL" -o noaa/mag.raw.json
+
+      # 4️⃣ 包装 + 校验
+      - name: Wrap & validate JSON
         run: |
           python3 - << 'PY'
-          import json, datetime, sys
+          import json, datetime, sys, pathlib
 
           ts = datetime.datetime.utcnow().isoformat() + "Z"
 
           def wrap(raw_path, out_path):
-              with open(raw_path, "r") as f:
-                  raw = json.load(f)
-              if not isinstance(raw, list) or len(raw) == 0:
-                  print(f"Invalid NOAA data in {raw_path}")
+              try:
+                  raw = json.load(open(raw_path))
+              except Exception as e:
+                  print(f"[ERROR] Failed to parse {raw_path}: {e}")
                   sys.exit(1)
-              json.dump({"fetchedAt": ts, "noaa": raw}, open(out_path, "w"), ensure_ascii=False)
+
+              if not isinstance(raw, list) or len(raw) == 0:
+                  print(f"[ERROR] Invalid NOAA data in {raw_path}")
+                  sys.exit(1)
+
+              pathlib.Path(out_path).write_text(
+                  json.dumps(
+                      {"fetchedAt": ts, "noaa": raw},
+                      ensure_ascii=False
+                  )
+              )
 
           wrap("noaa/plasma.raw.json", "noaa/plasma.json")
           wrap("noaa/mag.raw.json", "noaa/mag.json")
-
-          # backward compatibility: keep latest.json as plasma
           wrap("noaa/plasma.raw.json", "noaa/latest.json")
           PY
-          
+
+      # 5️⃣ 提交并推送（不会再 rebase 失败）
       - name: Commit & push if changed
         run: |
           rm -f noaa/plasma.raw.json noaa/mag.raw.json
+
           git config user.name "noaa-mirror-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          git pull --rebase origin main
-
           git add noaa/plasma.json noaa/mag.json noaa/latest.json
+
           if git diff --cached --quiet; then
             echo "No changes."
             exit 0
           fi
+
           git commit -m "chore: update noaa cache"
-          git push
+          git push origin main
