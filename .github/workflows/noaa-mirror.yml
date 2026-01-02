@@ -18,26 +18,31 @@ jobs:
       - name: Fetch NOAA data
         run: |
           mkdir -p noaa
-          curl -sSL "${{ secrets.NOAA_URL }}" -o noaa/latest.raw.json
+          # plasma
+          curl -sSL "${{ secrets.NOAA_URL }}" -o noaa/plasma.raw.json
+          # mag (IMF)
+          curl -sSL "${{ secrets.NOAA_MAG_URL }}" -o noaa/mag.raw.json
 
       - name: Wrap with fetchedAt
         run: |
           python3 - << 'PY'
           import json, datetime
-          raw = json.load(open("noaa/latest.raw.json","r"))
-          out = {
-            "fetchedAt": datetime.datetime.utcnow().isoformat() + "Z",
-            "noaa": raw
-          }
-          json.dump(out, open("noaa/latest.json","w"), ensure_ascii=False)
+
+          ts = datetime.datetime.utcnow().isoformat() + "Z"
+
+          plasma = json.load(open("noaa/plasma.raw.json","r"))
+          mag = json.load(open("noaa/mag.raw.json","r"))
+
+          json.dump({"fetchedAt": ts, "noaa": plasma}, open("noaa/plasma.json","w"), ensure_ascii=False)
+          json.dump({"fetchedAt": ts, "noaa": mag}, open("noaa/mag.json","w"), ensure_ascii=False)
           PY
 
       - name: Commit & push if changed
         run: |
-          rm -f noaa/latest.raw.json
+          rm -f noaa/plasma.raw.json noaa/mag.raw.json
           git config user.name "noaa-mirror-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add noaa/latest.json
+          git add noaa/plasma.json noaa/mag.json
           if git diff --cached --quiet; then
             echo "No changes."
             exit 0
