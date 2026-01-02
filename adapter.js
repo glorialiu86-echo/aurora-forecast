@@ -84,7 +84,9 @@ async function getRealtimeState() {
 
   // Plasma (common columns in plasma-2-hour.json)
   const speed = toNumberOrNull(solarWindRow?.speed);
-  const density = toNumberOrNull(solarWindRow?.density);
+  const densityRaw = toNumberOrNull(solarWindRow?.density);
+  // density 可能是 0.x，绝不能用 truthy 判断
+  const density = Number.isFinite(densityRaw) ? densityRaw : null;
   const temperature = toNumberOrNull(solarWindRow?.temperature);
   const plasmaTs = toIsoUtcFromNoaaTimeTag(solarWindRow?.time_tag);
 
