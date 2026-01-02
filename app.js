@@ -1,3 +1,4 @@
+
 const {
   $, clamp, round0, abs,
   safeText, safeHTML,
@@ -8,7 +9,7 @@ const {
   renderChart, badgeHTML,
   initTabs, initAbout,
   showAlertModal
-} = window.UI;
+} = window.UI || {};
 
   // ---------- 72h：高速风/能量输入 1/1 的代理规则 ----------
   function p1a_fastWind(sw){
