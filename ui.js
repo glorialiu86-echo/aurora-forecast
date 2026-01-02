@@ -1,6 +1,6 @@
+// ui.js (v18) — MUST export window.UI
 (() => {
-  
-// ---------- helpers ----------
+  // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const round0 = (x) => Math.round(x);
@@ -22,6 +22,7 @@
   }
   function setStatusText(t) { safeText($("statusText"), t); }
 
+  // ---------- cache ----------
   function cacheSet(key, value){
     try{ localStorage.setItem(key, JSON.stringify({ ts: Date.now(), value })); }catch(e){}
   }
@@ -106,24 +107,119 @@
     return 1 - (1 - f) * ratio;
   }
 
-  // ---------- NOAA fetch helpers ----------
-  function lastFinite(rows, key){
-    for(let i = rows.length - 1; i >= 0; i--){
-      const v = Number(rows[i]?.[key]);
-      if(Number.isFinite(v)) return v;
-    }
-    return null;
+  // ---------- UI bits: tabs / modal / alert ----------
+  function initTabs(){
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+    const panes = Array.from(document.querySelectorAll(".pane"));
+    if(!tabs.length || !panes.length) return;
+
+    const activate = (tabId) => {
+      tabs.forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+      panes.forEach(p => p.classList.toggle("active", p.id === tabId));
+    };
+
+    tabs.forEach(b => {
+      b.addEventListener("click", () => activate(b.dataset.tab));
+    });
   }
-  function lastTimeTag(rows){
-    for(let i = rows.length - 1; i >= 0; i--){
-      const t = rows[i]?.time_tag;
-      if(t) return t;
+
+  function initAbout(){
+    const modal = $("aboutModal");
+    const btn = $("btnAbout");
+    const close = $("btnAboutClose");
+
+    if(!modal || !btn) return;
+
+    const open = () => {
+      modal.classList.remove("hidden");
+      modal.setAttribute("aria-hidden", "false");
+    };
+    const hide = () => {
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+    };
+
+    btn.addEventListener("click", open);
+    close?.addEventListener("click", hide);
+
+    modal.addEventListener("click", (e) => {
+      const t = e.target;
+      if(t && t.getAttribute && t.getAttribute("data-close") === "1") hide();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if(e.key === "Escape") hide();
+    });
+  }
+
+  function showAlertModal(html){
+    const overlay = $("alertOverlay");
+    const body = $("alertBody");
+    const btnX = $("alertClose");
+    const btnOk = $("alertOk");
+    if(!overlay || !body) return;
+
+    safeHTML(body, html);
+
+    overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+
+    const hide = () => {
+      overlay.classList.add("hidden");
+      overlay.setAttribute("aria-hidden", "true");
+    };
+    btnX?.addEventListener("click", hide, { once:true });
+    btnOk?.addEventListener("click", hide, { once:true });
+  }
+
+  // ---------- chart ----------
+  let _chart = null;
+  function renderChart(labels, vals, cols){
+    const canvas = $("cChart");
+    if(!canvas || !window.Chart) return;
+
+    const ctx = canvas.getContext("2d");
+    if(!ctx) return;
+
+    // rebuild each time (simple + stable)
+    if(_chart){
+      try{ _chart.destroy(); }catch(e){}
+      _chart = null;
     }
-    return null;
+
+    _chart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          data: vals,
+          backgroundColor: cols,
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display:false } },
+          y: {
+            min: 0,
+            max: 5,
+            ticks: { stepSize: 1 },
+            grid: { display:false }
+          }
+        }
+      }
+    });
+  }
+
+  function badgeHTML(text, cls){
+    const safe = escapeHTML(text);
+    return `<span class="badge ${cls}">${safe}</span>`;
   }
 
   // ---------- data fetch ----------
-
   async function fetchKp(){
     const url = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
     try{
@@ -178,8 +274,43 @@
     }
   }
 
-// ---------- expose data fetchers for app.js (window.Data.*) ----------
-window.Data = window.Data || {};
-Object.assign(window.Data, { fetchKp, fetchClouds, fetchOvation });
-  
+  // ---------- expose ----------
+  window.UI = {
+    $,
+    clamp,
+    round0,
+    abs,
+    safeText,
+    safeHTML,
+    setStatusDots,
+    setStatusText,
+    cacheSet,
+    cacheGet,
+    fmtAge,
+    now,
+    fmtYMD,
+    fmtHM,
+    fmtYMDHM,
+    escapeHTML,
+
+    // chart / badges
+    renderChart,
+    badgeHTML,
+
+    // astro helpers used by app.js
+    getSunAltDeg,
+    getMoonAltDeg,
+    obsGate,
+    moonFactorByLat,
+    soften,
+
+    // ui controls
+    initTabs,
+    initAbout,
+    showAlertModal,
+  };
+
+  // Data fetchers kept as window.Data.* for app.js
+  window.Data = window.Data || {};
+  Object.assign(window.Data, { fetchKp, fetchClouds, fetchOvation });
 })();
