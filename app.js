@@ -47,29 +47,7 @@ const {
       // 位置门槛（不解释）
       if(abs(lat) < 50){
         safeText($("oneHeroLabel"), "1分 不可观测");
-          // OVATION meta (time + age)
-          let ovaTxt = "—";
-          try {
-            if (ova?.ok && ova?.data) {
-              const tStr = ova.data.ObservationTime || ova.data.ForecastTime || null;
-              if (tStr) {
-                const t = Date.parse(tStr);
-                const ageMin = Number.isFinite(t) ? Math.round((Date.now() - t) / 60000) : null;
-                ovaTxt = `OK（${ageMin == null ? "?" : ageMin}m）`;
-              } else {
-                ovaTxt = "OK";
-              }
-            } else if (ova?.note) {
-              ovaTxt = "失败";
-            }
-          } catch(_) {
-            ovaTxt = ova?.ok ? "OK" : "—";
-          }
-          
-          safeText(
-            $("oneHeroMeta"),
-            `本地时间：${fmtYMDHM(baseDate)} ・ OVATION：${ovaTxt}`
-          );
+        safeText($("oneHeroMeta"), "—");
         safeText($("swLine"), "V — ｜ Bt — ｜ Bz — ｜ N —");
         safeText($("swMeta"), "—");
 
@@ -218,9 +196,30 @@ const {
 
       const heroObj = labelByScore5(heroScore);
       safeText($("oneHeroLabel"), `${heroObj.score}分 ${heroObj.t}`);
+      // OVATION meta (time + age)
+      let ovaTxt = "—";
+      try {
+        if (ova?.ok && ova?.data) {
+          const tStr = ova.data.ObservationTime || ova.data.ForecastTime || null;
+          if (tStr) {
+            const t = Date.parse(tStr);
+            const ageMin = Number.isFinite(t)
+              ? Math.round((Date.now() - t) / 60000)
+              : null;
+            ovaTxt = `OK（${ageMin == null ? "?" : ageMin}m）`;
+          } else {
+            ovaTxt = "OK";
+          }
+        } else if (ova?.note) {
+          ovaTxt = "失败";
+        }
+      } catch (_) {
+        ovaTxt = ova?.ok ? "OK" : "—";
+      }
+      
       safeText(
         $("oneHeroMeta"),
-        `本地时间：${fmtYMDHM(baseDate)} ・ OVATION：${ova.ok ? (pickOvation(ova.data) ?? "—") : "—"}`
+        `本地时间：${fmtYMDHM(baseDate)} ・ OVATION：${ovaTxt}`
       );
 
       renderChart(labels, vals, cols);
