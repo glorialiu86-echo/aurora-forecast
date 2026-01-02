@@ -2,7 +2,7 @@ name: NOAA Mirror
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # 每 5 分钟跑一次（先别太频繁）
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -15,26 +15,34 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Fetch NOAA data
+      - name: Fetch NOAA data (plasma + mag)
         run: |
           mkdir -p noaa
-          # plasma
+          # plasma (solar wind)
           curl -sSL "${{ secrets.NOAA_URL }}" -o noaa/plasma.raw.json
           # mag (IMF)
           curl -sSL "${{ secrets.NOAA_MAG_URL }}" -o noaa/mag.raw.json
 
-      - name: Wrap with fetchedAt
+      - name: Wrap & validate
         run: |
           python3 - << 'PY'
-          import json, datetime
+          import json, datetime, sys
 
           ts = datetime.datetime.utcnow().isoformat() + "Z"
 
-          plasma = json.load(open("noaa/plasma.raw.json","r"))
-          mag = json.load(open("noaa/mag.raw.json","r"))
+          def wrap(raw_path, out_path):
+              with open(raw_path, "r") as f:
+                  raw = json.load(f)
+              if not isinstance(raw, list) or len(raw) == 0:
+                  print(f"Invalid NOAA data in {raw_path}")
+                  sys.exit(1)
+              json.dump({"fetchedAt": ts, "noaa": raw}, open(out_path, "w"), ensure_ascii=False)
 
-          json.dump({"fetchedAt": ts, "noaa": plasma}, open("noaa/plasma.json","w"), ensure_ascii=False)
-          json.dump({"fetchedAt": ts, "noaa": mag}, open("noaa/mag.json","w"), ensure_ascii=False)
+          wrap("noaa/plasma.raw.json", "noaa/plasma.json")
+          wrap("noaa/mag.raw.json", "noaa/mag.json")
+
+          # backward compatibility: keep latest.json as plasma
+          wrap("noaa/plasma.raw.json", "noaa/latest.json")
           PY
 
       - name: Commit & push if changed
@@ -42,7 +50,7 @@ jobs:
           rm -f noaa/plasma.raw.json noaa/mag.raw.json
           git config user.name "noaa-mirror-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add noaa/plasma.json noaa/mag.json
+          git add noaa/plasma.json noaa/mag.json noaa/latest.json
           if git diff --cached --quiet; then
             echo "No changes."
             exit 0
