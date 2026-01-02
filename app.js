@@ -1,33 +1,37 @@
-// --- UI proxies (avoid load-order / caching issues) ---
-const UI = () => window.UI || {};
-
-const $ = (id) => UI().$(id);
-const clamp = (x, a, b) => UI().clamp(x, a, b);
-const round0 = (x) => UI().round0(x);
-const abs = (x) => UI().abs(x);
-
-const safeText = (el, t) => UI().safeText(el, t);
-const safeHTML = (el, h) => UI().safeHTML(el, h);
-
-const setStatusDots = (items) => UI().setStatusDots(items);
-const setStatusText = (t) => UI().setStatusText(t);
-
-const cacheSet = (k, v) => UI().cacheSet(k, v);
-const cacheGet = (k) => UI().cacheGet(k);
-const fmtAge = (ms) => UI().fmtAge(ms);
-
-const now = () => UI().now();
-const fmtYMD = (d) => UI().fmtYMD(d);
-const fmtHM = (d) => UI().fmtHM(d);
-const fmtYMDHM = (d) => UI().fmtYMDHM(d);
-
-const escapeHTML = (s) => UI().escapeHTML(s);
-const renderChart = (labels, vals, cols) => UI().renderChart(labels, vals, cols);
-const badgeHTML = (text, cls) => UI().badgeHTML(text, cls);
-
-const initTabs = () => UI().initTabs?.();
-const initAbout = () => UI().initAbout?.();
-const showAlertModal = (html) => UI().showAlertModal(html);
+// --- UI proxies (robust against load-order / cache) ---
+   const uiReady = () =>
+     window.UI &&
+     typeof window.UI.$ === "function" &&
+     typeof window.UI.safeText === "function";
+   
+   const $ = (id) => (uiReady() ? window.UI.$(id) : null);
+   
+   const clamp = (x, a, b) => (uiReady() ? window.UI.clamp(x, a, b) : x);
+   const round0 = (x) => (uiReady() ? window.UI.round0(x) : x);
+   const abs = (x) => (uiReady() ? window.UI.abs(x) : Math.abs(x));
+   
+   const safeText = (el, t) => { if (uiReady()) window.UI.safeText(el, t); };
+   const safeHTML = (el, h) => { if (uiReady()) window.UI.safeHTML(el, h); };
+   
+   const setStatusDots = (items) => { if (uiReady()) window.UI.setStatusDots(items); };
+   const setStatusText = (t) => { if (uiReady()) window.UI.setStatusText(t); };
+   
+   const cacheSet = (k, v) => { if (uiReady()) window.UI.cacheSet(k, v); };
+   const cacheGet = (k) => (uiReady() ? window.UI.cacheGet(k) : null);
+   const fmtAge = (ms) => (uiReady() ? window.UI.fmtAge(ms) : "");
+   
+   const now = () => (uiReady() ? window.UI.now() : new Date());
+   const fmtYMD = (d) => (uiReady() ? window.UI.fmtYMD(d) : "");
+   const fmtHM = (d) => (uiReady() ? window.UI.fmtHM(d) : "");
+   const fmtYMDHM = (d) => (uiReady() ? window.UI.fmtYMDHM(d) : "");
+   
+   const escapeHTML = (s) => (uiReady() ? window.UI.escapeHTML(s) : String(s));
+   const renderChart = (labels, vals, cols) => { if (uiReady()) window.UI.renderChart(labels, vals, cols); };
+   const badgeHTML = (text, cls) => (uiReady() ? window.UI.badgeHTML(text, cls) : "");
+   
+   const initTabs = () => { if (uiReady() && typeof window.UI.initTabs === "function") window.UI.initTabs(); };
+   const initAbout = () => { if (uiReady() && typeof window.UI.initAbout === "function") window.UI.initAbout(); };
+   const showAlertModal = (html) => { if (uiReady() && typeof window.UI.showAlertModal === "function") window.UI.showAlertModal(html); };
 
    // ---------- main run ----------
   async function run(){
@@ -368,6 +372,17 @@ const showAlertModal = (html) => UI().showAlertModal(html);
       alert(`磁纬约 ${Math.round(m * 10) / 10}°`);
     });
   }
-  document.addEventListener("DOMContentLoaded", bootstrap);
+      document.addEventListener("DOMContentLoaded", () => {
+        const t0 = Date.now();
+        const tick = () => {
+          if (uiReady()) return bootstrap();
+          if (Date.now() - t0 > 3000) {
+            console.error("[AuroraCapture] UI not ready (ui.js maybe not loaded).");
+            return;
+          }
+          setTimeout(tick, 50);
+        };
+        tick();
+      });
 
 getRealtimeState().then(s => console.log("RealtimeState", s)).catch(e => console.error(e));
