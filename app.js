@@ -1,4 +1,3 @@
-
 const {
   clamp, round0, abs,
   safeText, safeHTML,
