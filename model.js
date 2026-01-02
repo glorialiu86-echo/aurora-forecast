@@ -16,7 +16,74 @@
     miss_v: 0.85,
   };
 
-  function approxMagLat(lat, lon){
+  // --- AACGMv2 1°×1° 磁纬表（lazy load）---
+  const _AACGM = {
+    ready: false,
+    loading: false,
+    meta: null,
+    grid: null,   // Int16Array, value = mlat*100, -32768 = invalid
+    p: null
+  };
+
+  const _AACGM_META_URL = "data/aacgmv2_mlat_1deg_110km_2026-01-01_meta.json";
+  const _AACGM_BIN_URL  = "data/aacgmv2_mlat_1deg_110km_2026-01-01_i16.bin";
+
+  function _loadAACGMGrid(){
+    if (_AACGM.ready) return Promise.resolve(_AACGM);
+    if (_AACGM.loading && _AACGM.p) return _AACGM.p;
+
+    _AACGM.loading = true;
+    _AACGM.p = Promise.all([
+      fetch(_AACGM_META_URL).then(r => {
+        if(!r.ok) throw new Error("meta fetch failed: " + r.status);
+        return r.json();
+      }),
+      fetch(_AACGM_BIN_URL).then(r => {
+        if(!r.ok) throw new Error("bin fetch failed: " + r.status);
+        return r.arrayBuffer();
+      }),
+    ]).then(([meta, buf]) => {
+      _AACGM.meta = meta;
+
+      // 注意：Int16Array 按平台字节序读；mac/win 基本都是 little-endian（与我们写入一致）
+      _AACGM.grid = new Int16Array(buf);
+
+      _AACGM.ready = true;
+      _AACGM.loading = false;
+      return _AACGM;
+    }).catch(err => {
+      console.warn("[AACGM] grid load failed, fallback to approx:", err);
+      _AACGM.loading = false;
+      _AACGM.p = null;
+      return _AACGM;
+    });
+
+    return _AACGM.p;
+  }
+
+  function _lookupAACGM_mlat(lat, lon){
+    if(!_AACGM.ready || !_AACGM.grid) return null;
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    // lat: -90..90 -> idx: 0..180（四舍五入到最近 1°）
+    const latIdx = Math.max(0, Math.min(180, Math.round(lat) + 90));
+
+    // lon wrap to [-180, 180)
+    let lw = ((lon % 360) + 360) % 360;
+    if (lw >= 180) lw -= 360;
+
+    // lon: -180..179 -> idx: 0..359（落到 1°格）
+    let lonIdx = Math.floor(lw + 180);
+    lonIdx = Math.max(0, Math.min(359, lonIdx));
+
+    const idx = latIdx * 360 + lonIdx;
+    const v = _AACGM.grid[idx];
+
+    if (v === -32768) return null; // AACGMv2 在低纬/赤道附近可能无定义
+    return v / 100.0;
+  }
+
+  function _approxMagLatFallback(lat, lon){
     const poleLat = 80.65;
     const poleLon = -72.68;
     const toRad = (d)=>d*Math.PI/180;
@@ -27,6 +94,16 @@
     const cosc = Math.sin(a1)*Math.sin(a2) + Math.cos(a1)*Math.cos(a2)*Math.cos(b1-b2);
     const c = Math.acos(clamp(cosc, -1, 1));
     return 90 - deg(c);
+  }
+
+  function approxMagLat(lat, lon){
+    // 已加载：直接查表
+    const m = _lookupAACGM_mlat(lat, lon);
+    if (m != null) return m;
+
+    // 未加载：触发一次加载（不阻塞），先用旧近似兜底
+    if (!_AACGM.ready && !_AACGM.loading) _loadAACGMGrid();
+    return _approxMagLatFallback(lat, lon);
   }
 
   function labelByScore5(s){
