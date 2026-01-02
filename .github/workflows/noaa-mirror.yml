@@ -1,1 +1,46 @@
+name: NOAA Mirror
 
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # 每 5 分钟跑一次（先别太频繁）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch NOAA data
+        run: |
+          mkdir -p noaa
+          curl -sSL "${{ secrets.NOAA_URL }}" -o noaa/latest.raw.json
+
+      - name: Wrap with fetchedAt
+        run: |
+          python3 - << 'PY'
+          import json, datetime
+          raw = json.load(open("noaa/latest.raw.json","r"))
+          out = {
+            "fetchedAt": datetime.datetime.utcnow().isoformat() + "Z",
+            "noaa": raw
+          }
+          json.dump(out, open("noaa/latest.json","w"), ensure_ascii=False)
+          PY
+
+      - name: Commit & push if changed
+        run: |
+          rm -f noaa/latest.raw.json
+          git config user.name "noaa-mirror-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add noaa/latest.json
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "chore: update noaa cache"
+          git push
