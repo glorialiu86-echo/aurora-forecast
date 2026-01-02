@@ -105,7 +105,14 @@
     if (!_AACGM.ready && !_AACGM.loading) _loadAACGMGrid();
     return _approxMagLatFallback(lat, lon);
   }
-
+  
+  // ---- debug exports (for Console verification) ----
+  try{
+    window._AACGM = _AACGM;
+    window._loadAACGMGrid = _loadAACGMGrid;
+    window._lookupAACGM_mlat = _lookupAACGM_mlat;
+  }catch(e){}
+  
   function labelByScore5(s){
     if(s >= 5) return { score:5, t:"强烈推荐", cls:"g" };
     if(s >= 4) return { score:4, t:"值得出门", cls:"g" };
