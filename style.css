@@ -376,6 +376,77 @@ canvas{width:100% !important; height:100% !important}
 .colBasis{min-width: 360px}
 
 /* ===============================
+   72小时：三列日卡（今天/明天/后天）
+   =============================== */
+
+.daysTri{
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.dayCard{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.10);
+  padding: 14px 14px;
+  min-width: 0;
+}
+
+.dayHead{
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.dayLabel{
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: .2px;
+  color: rgba(255,255,255,.86);
+}
+
+.dayDate{
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: .2px;
+}
+
+.dayConclusion{
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  line-height: 1.08;
+  margin: 6px 0 10px;
+}
+
+.dayBasis{
+  color: rgba(255,255,255,.78);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.basisItem + .basisItem{
+  margin-top: 6px;
+}
+
+/* 结论配色板（沿用 g/y/r/b） */
+.dayCard.g{ border-color: rgba(43,209,126,.22); background: rgba(43,209,126,.06); }
+.dayCard.y{ border-color: rgba(255,204,102,.22); background: rgba(255,204,102,.05); }
+.dayCard.r{ border-color: rgba(255,91,106,.22); background: rgba(255,91,106,.05); }
+.dayCard.b{ border-color: rgba(91,124,255,.22); background: rgba(91,124,255,.06); }
+
+.dayCard.g .dayConclusion{ color: rgba(43,209,126,.98); }
+.dayCard.y .dayConclusion{ color: rgba(255,204,102,.98); }
+.dayCard.r .dayConclusion{ color: rgba(255,91,106,.98); }
+.dayCard.b .dayConclusion{ color: rgba(91,124,255,.98); }
+
+@media (max-width: 820px){
+  .daysTri{ grid-template-columns: 1fr; }
+  .dayConclusion{ font-size: 28px; }
+}
+/* ===============================
    72小时：概览条（A）
    =============================== */
 

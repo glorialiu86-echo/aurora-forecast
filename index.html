@@ -19,7 +19,7 @@
           <div class="titleBlock">
             <div class="titleRow">
               <h1>Aurora Capture <span class="cn">极光捕网</span></h1>
-              <span class="ver">v2.6.0041</span>
+              <span class="ver">v2.6.0042</span>
             </div>
             <div class="subtitle">输入经纬度 → 生成关于极光可见性/可拍性的即时预测（1小时/3小时/72小时）</div>
           </div>
@@ -164,25 +164,34 @@
         <div class="k">72小时范围预测</div>
         <div class="small">按天预测“可能性区间”，无法细致到具体时刻。</div>
 
-        <!-- 72h 概览条：由 app.js 动态填充（3张小卡片） -->
-        <div class="daysOverview" id="daysOverview">
-          <!-- waiting -->
-        </div>
+        <!-- 72h 三列日卡：今天 / 明天 / 后天（由 app.js 动态填充） -->
+        <div class="daysTri" id="daysTri">
+          <div class="dayCard" id="day0">
+            <div class="dayHead">
+              <div class="dayLabel">今天</div>
+              <div class="dayDate" id="day0Date">—</div>
+            </div>
+            <div class="dayConclusion" id="day0Conclusion">—</div>
+            <div class="dayBasis" id="day0Basis">等待生成。</div>
+          </div>
 
-        <div class="tableWrap">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th class="colDate">日期（本地）</th>
-                <th class="colConclusion">结论</th>
-                <th class="colScore">分数</th>
-                <th class="colBasis">依据</th>
-              </tr>
-            </thead>
-            <tbody id="daysBody">
-              <tr><td colspan="4" class="muted">等待生成。</td></tr>
-            </tbody>
-          </table>
+          <div class="dayCard" id="day1">
+            <div class="dayHead">
+              <div class="dayLabel">明天</div>
+              <div class="dayDate" id="day1Date">—</div>
+            </div>
+            <div class="dayConclusion" id="day1Conclusion">—</div>
+            <div class="dayBasis" id="day1Basis">等待生成。</div>
+          </div>
+
+          <div class="dayCard" id="day2">
+            <div class="dayHead">
+              <div class="dayLabel">后天</div>
+              <div class="dayDate" id="day2Date">—</div>
+            </div>
+            <div class="dayConclusion" id="day2Conclusion">—</div>
+            <div class="dayBasis" id="day2Basis">等待生成。</div>
+          </div>
         </div>
       </div>
 
@@ -258,10 +267,10 @@
   </div>
   
   <!-- your modules -->
-  <script defer src="./adapter.js?v=0041"></script>
-  <script defer src="./ui.js?v=0041"></script>
-  <script defer src="./model.js?v=0041"></script>
-  <script defer src="./app.js?v=0041"></script>
+  <script defer src="./adapter.js?v=0042"></script>
+  <script defer src="./ui.js?v=0042"></script>
+  <script defer src="./model.js?v=0042"></script>
+  <script defer src="./app.js?v=0042"></script>
   
 </body>
 </html>

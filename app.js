@@ -304,8 +304,14 @@ function _cloudTotal(low, mid, high){
         // 云量模块已隐藏：停止向 threeClouds 写内容（保留云量逻辑供未来恢复）
         // safeHTML($("threeClouds"), "云量评分：—");
 
-        safeHTML($("daysBody"), `<tr><td colspan="4" class="muted">不可观测。</td></tr>`);
-        safeHTML($("daysOverview"), "");
+        // 72h（三列日卡）
+        [0,1,2].forEach(i => {
+          safeText($("day"+i+"Date"), "—");
+          safeText($("day"+i+"Conclusion"), "1分 不可观测");
+          safeText($("day"+i+"Basis"), "不可观测。");
+          const card = $("day"+i);
+          if(card) card.className = "dayCard r";
+        });
         setStatusDots([
           { level:"ok", text:"NOAA —" },
           { level:"ok", text:"Kp —" },
@@ -737,14 +743,15 @@ function _cloudTotal(low, mid, high){
       //   );
       // }
 
-      // ---------- 72h：概览条 + 表格（依据折叠） ----------
+      // ---------- 72h：三列日卡（今天/明天/后天） ----------
       const days = next3DaysLocal(baseDate);
       const kpMap = kp.ok ? kpMaxByDay(kp.data) : null;
 
-      const tbody = [];
-      const overview = [];
+      // p1a/p1b（高速风/能量输入）对三天相同，用于依据展示
+      const p1a = window.Model.p1a_fastWind(sw) ? 1 : 0;
+      const p1b = window.Model.p1b_energyInput(sw) ? 1 : 0;
 
-      days.forEach(d => {
+      days.forEach((d, i) => {
         const key = fmtYMD(d);
         const kpMax = kpMap?.get(key) ?? null;
 
@@ -776,69 +783,37 @@ function _cloudTotal(low, mid, high){
         };
         const lab = map5[score5];
 
-        // 云量更佳点（用于摘要/详情；即使云量模块隐藏，这里仍作为内部依据展示的一部分）
-        let cloudBrief = "云 —";
+        // 云量更佳点（即使云量模块隐藏，这里仍作为依据展示）
         let cloudDetail = "云量更佳点：—";
         if (clouds.ok && clouds.data) {
           const win = bestCloudHourForDay(clouds.data, d);
           if (win) {
-            cloudBrief = `云 ${win.hh}:00`;
-            cloudDetail = `云量更佳点：${win.hh}:00（低云≈${win.low}% 中云≈${win.mid}% 高云≈${win.high}%）`;
+            cloudDetail = `云量更佳点：${win.hh}:00（L/M/H≈${win.low}/${win.mid}/${win.high}%）`;
           }
         }
 
-        // p1a/p1b（高速风/能量输入）
-        const p1a = window.Model.p1a_fastWind(sw) ? 1 : 0;
-        const p1b = window.Model.p1b_energyInput(sw) ? 1 : 0;
+        // 依据（不折叠，允许换行）
+        const kpLine = `能量背景：Kp峰值≈${kpMax == null ? "—" : round0(kpMax)}`;
+        const delLine = `送达模型：${del.count}/3（Bt/速度/密度）`;
+        const trigLine = `触发模型：高速风${p1a}/1 · 能量输入${p1b}/1`;
+        const nightLine = `夜晚占比：${Math.round(nightRatio * 100)}%`;
 
-        // 依据摘要（1行，便于扫读）
-        const kpTxt = kpMax == null ? "Kp—" : `Kp≈${round0(kpMax)}`;
-        const delTxt = `送达${del.count}/3`;
-        const nightTxt = `夜${Math.round(nightRatio * 100)}%`;
-        const sumLine = `${kpTxt} · ${delTxt} · ${nightTxt} · ${cloudBrief}`;
+        const basisHTML = [
+          `<div class="basisItem">${escapeHTML(kpLine)}</div>`,
+          `<div class="basisItem">${escapeHTML(delLine)}</div>`,
+          `<div class="basisItem">${escapeHTML(trigLine)}</div>`,
+          `<div class="basisItem">${escapeHTML(nightLine)}</div>`,
+          `<div class="basisItem">${escapeHTML(cloudDetail)}</div>`,
+        ].join("");
 
-        // 依据详情（展开后）
-        const basisDetail = [
-          `• 能量背景：Kp峰值≈${kpMax == null ? "—" : round0(kpMax)}`,
-          `• 日冕洞与日冕物质抛射模型：高速风${p1a}/1，能量输入${p1b}/1`,
-          `• 太阳风送达能力综合模型：当前 ${del.count}/3（Bt/速度/密度）`,
-          `• ${cloudDetail}`,
-        ].join("<br/>");
+        // 写入到三列卡片
+        safeText($("day"+i+"Date"), key);
+        safeText($("day"+i+"Conclusion"), `${score5}分 ${lab.t}`);
+        safeHTML($("day"+i+"Basis"), basisHTML);
 
-        // 表格：依据折叠（默认显示摘要）
-        const basisFoldHTML = `
-          <details class="basisFold">
-            <summary>${escapeHTML(sumLine)}</summary>
-            <div class="basisDetail muted2">${basisDetail}</div>
-          </details>
-        `;
-
-        tbody.push(`
-          <tr>
-            <td>${key}</td>
-            <td>${badgeHTML(lab.t, lab.cls)}</td>
-            <td>${score5}</td>
-            <td>${basisFoldHTML}</td>
-          </tr>
-        `);
-
-        // 概览条：3张小卡片
-        overview.push(`
-          <div class="dayMini ${escapeHTML(lab.cls)}">
-            <div class="dayMiniTop">
-              <div class="dayMiniDate">${escapeHTML(key)}</div>
-              <div class="dayMiniBadge">${badgeHTML(lab.t, lab.cls)}</div>
-            </div>
-            <div class="dayMiniMid">
-              <div class="dayMiniScore">${escapeHTML(String(score5))}</div>
-              <div class="dayMiniWhy">${escapeHTML(sumLine)}</div>
-            </div>
-          </div>
-        `);
+        const card = $("day"+i);
+        if(card) card.className = `dayCard ${lab.cls}`;
       });
-
-      safeHTML($("daysBody"), tbody.join(""));
-      safeHTML($("daysOverview"), overview.join(""));
 
     }catch(err){
       console.error("[AuroraCapture] run error:", err);
