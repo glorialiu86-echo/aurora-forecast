@@ -552,6 +552,14 @@ function _cloudTotal(low, mid, high){
 
       // ---------- 3小时观测窗口：每小时独立判断 + 并列最佳 ----------
 
+      // 旧版：极光爆发模型（保留，仅作为补充信息）
+      let s3Burst = null;
+      try{
+        if(typeof window.Model?.state3h === "function"){
+          s3Burst = window.Model.state3h(sw);
+        }
+      }catch(_){ s3Burst = null; }
+
       // 送达模型（保留：作为背景信息）
       const del = window.Model.deliverModel(sw);
       safeText($("threeDeliver"), `${del.count}/3 成立`);
@@ -703,8 +711,11 @@ function _cloudTotal(low, mid, high){
       const bestLine = (best.length >= 2)
         ? `并列最佳：${escapeHTML(bestWindows)}`
         : `最佳窗口：${escapeHTML(bestWindows)}`;
+      const burstLine = (s3Burst && s3Burst.state)
+        ? `<div class="mutedLine">爆发模型：<b>${escapeHTML(s3Burst.state)}</b>${s3Burst.hint ? ` · ${escapeHTML(s3Burst.hint)}` : ""}</div>`
+        : "";
 
-      safeHTML($("threeHint"), `${slotHtml}<div class="mutedLine">${bestLine}</div>`);
+      safeHTML($("threeHint"), `${burstLine}${slotHtml}<div class="mutedLine">${bestLine}</div>`);
 
       // 3小时云量摘要（保留你原来的“未来3小时内最好的那个小时点”）
       let cloudBest3h = null;
