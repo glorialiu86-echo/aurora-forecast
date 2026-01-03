@@ -19,7 +19,7 @@
     block_cloud_max_ge: 65,     // 云量遮挡：三层云中“最大值”≥此阈值
     block_moon_alt_ge: 15,      // 月光干扰：月亮高度 ≥ 15°
     block_moon_frac_ge: 0.50,   // 月相亮度（0~1）≥ 0.50（半月以上）
-    block_twilight_sun_alt_gt: -18, // 天光干扰：太阳高度 > -18°（未进入天文暗夜）
+    block_twilight_sun_alt_gt: -10, // 天色偏亮：太阳高度 > -10°（更贴近观测/摄影体感）
   };
 
   // 你旧的“近似磁纬”保留（目前已用 AACGM 查表替代，但我不删的）
@@ -128,12 +128,12 @@
 
   const BlockerText = {
     [ObservationBlocker.CLOUD_COVER]: "天空被云层遮挡，不利于观测",
-    [ObservationBlocker.MOONLIGHT]: "月光过强，微弱极光难以分辨",
-    [ObservationBlocker.TWILIGHT]: "天色偏亮，背景亮度过高",
+    [ObservationBlocker.MOONLIGHT]: "天色偏亮，微弱极光难以分辨",
+    [ObservationBlocker.TWILIGHT]: "天色偏亮，微弱极光难以分辨",
     [ObservationBlocker.LOW_AURORA_CONTRAST]: "极光亮度不足以被当前环境清晰分辨",
   };
 
-  // 优先级：云 > 月 > 天光 > 对比度不足
+  // 优先级（最终只输出一个原因）：云 > 天色偏亮（含月/日） > 对比度不足
   const BlockerPriority = [
     ObservationBlocker.CLOUD_COVER,
     ObservationBlocker.MOONLIGHT,
@@ -155,6 +155,7 @@
     const moonFrac   = (p?.moonFrac   == null) ? null : Number(p.moonFrac);
     const sunAltDeg  = (p?.sunAltDeg  == null) ? null : Number(p.sunAltDeg);
 
+    // 命中集合（内部仍可分别命中，但最终只输出一个原因）
     const hit = new Set();
 
     // ① 云量遮挡
@@ -162,38 +163,44 @@
       hit.add(ObservationBlocker.CLOUD_COVER);
     }
 
-    // ② 月光干扰（需要月亮高度 + 月相亮度）
+    // ② 天色偏亮（统一解释：月光或天光导致背景亮）
+    // ②-1 月光：需要月亮高度 + 月相亮度
     if(moonAltDeg != null && moonFrac != null){
       if(moonAltDeg >= W.block_moon_alt_ge && moonFrac >= W.block_moon_frac_ge){
         hit.add(ObservationBlocker.MOONLIGHT);
       }
     }
 
-    // ③ 天光干扰（太阳高度未低于天文暗夜阈值）
+    // ②-2 天光：太阳高度超过阈值（现在用 -10°）
     if(sunAltDeg != null){
       if(sunAltDeg > W.block_twilight_sun_alt_gt){
         hit.add(ObservationBlocker.TWILIGHT);
       }
     }
 
-    // ④ 兜底：极光对比度不足（只在前 3 项都不成立时）
-    const anyTop3 = hit.has(ObservationBlocker.CLOUD_COVER)
+    // ③ 兜底：极光对比度不足（只在前两类都不成立时）
+    const anyTop2 = hit.has(ObservationBlocker.CLOUD_COVER)
       || hit.has(ObservationBlocker.MOONLIGHT)
       || hit.has(ObservationBlocker.TWILIGHT);
 
-    if(!anyTop3){
+    if(!anyTop2){
       hit.add(ObservationBlocker.LOW_AURORA_CONTRAST);
     }
 
-    const ordered = BlockerPriority.filter(k => hit.has(k));
-    const primary = ordered[0] || ObservationBlocker.LOW_AURORA_CONTRAST;
-    const secondary = ordered[1] || null;
+    // 最终只输出一个原因：云 > 天色偏亮（含月/日） > 对比度不足
+    let primary = ObservationBlocker.LOW_AURORA_CONTRAST;
+    if(hit.has(ObservationBlocker.CLOUD_COVER)){
+      primary = ObservationBlocker.CLOUD_COVER;
+    } else if(hit.has(ObservationBlocker.MOONLIGHT) || hit.has(ObservationBlocker.TWILIGHT)){
+      // 二者文案已统一，这里任选其一作为类型标识即可
+      primary = hit.has(ObservationBlocker.TWILIGHT) ? ObservationBlocker.TWILIGHT : ObservationBlocker.MOONLIGHT;
+    }
 
     return {
       primary,
-      secondary,
+      secondary: null,
       primaryText: BlockerText[primary],
-      secondaryText: secondary ? BlockerText[secondary] : null,
+      secondaryText: null,
     };
   }
 
