@@ -88,6 +88,26 @@
        : f;
 
 // ===============================
+// C-score helpers (1~5) for consistent coloring across 1h/3h/72h
+// ===============================
+function cClass(c){
+  const n = Math.max(1, Math.min(5, Math.round(Number(c) || 1)));
+  return `c${n}`;
+}
+
+function cColor(c){
+  try{
+    const n = Math.max(1, Math.min(5, Math.round(Number(c) || 1)));
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue(`--c${n}`)
+      .trim();
+    return v || "rgba(255,255,255,.20)";
+  }catch(_){
+    return "rgba(255,255,255,.20)";
+  }
+}
+
+// ===============================
 // Cloud + 72h helper functions (stop-gap, stable)
 // ===============================
 
@@ -315,7 +335,7 @@ function _cloudTotal(low, mid, high){
 
       // 位置门槛（不解释）
       if(abs(lat) < 50){
-        safeText($("oneHeroLabel"), "1分 不可观测");
+        safeHTML($("oneHeroLabel"), `<span class="${cClass(1)} cText">1分</span> 不可观测`);
         safeText($("oneHeroMeta"), "—");
         safeText($("swLine"), "V — ｜ Bt — ｜ Bz — ｜ N —");
         safeText($("swMeta"), "—");
@@ -593,12 +613,16 @@ function _cloudTotal(low, mid, high){
         const s5 = window.Model.score5FromC10(c10); // 1..5
         labels.push(fmtHM(d));
         vals.push(s5);
-        cols.push(s5 <= 1 ? "rgba(255,255,255,.20)" : "rgba(91,124,255,.72)");
+        cols.push(cColor(s5));
         if(i===0) heroScore = s5;
       }
 
       const heroObj = window.Model.labelByScore5(heroScore);
-      safeText($("oneHeroLabel"), `${heroObj.score}分 ${heroObj.t}`);
+      // 1小时标题：分数字体跟随 C 值颜色（c1~c5）
+      safeHTML(
+        $("oneHeroLabel"),
+        `<span class="${cClass(heroObj.score)} cText">${escapeHTML(String(heroObj.score))}分</span> ${escapeHTML(heroObj.t)}`
+      );
       // OVATION meta (time + age)
       let ovaTxt = "—";
       try {
@@ -816,7 +840,7 @@ function _cloudTotal(low, mid, high){
           : ``;
 
         return `
-          <div class="slot ${isBest ? "best" : ""}">
+          <div class="slot ${cClass(s.score5)} cFrame ${isBest ? "best" : ""}">
             <div><b>${escapeHTML(win)}</b> ${badge}</div>
             ${factor}
           </div>

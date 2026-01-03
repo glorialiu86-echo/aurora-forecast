@@ -737,8 +737,10 @@ canvas{width:100% !important; height:100% !important}
 }
 
 .threeSlots .slot.best{
-  border-color: rgba(43,209,126,.28);
-  background: rgba(43,209,126,.08);
+  /* 不再强制绿色，保持 slot 自己的 c1~c5 配色 */
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.06) inset,
+    0 10px 26px rgba(0,0,0,.25);
 }
 
 /* 3小时 slots：按分数固定染色（c1~c5） */
