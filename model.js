@@ -1,6 +1,6 @@
 // model.js
 (() => {
-  const { clamp, abs, round0, fmtYMD, fmtHM } = window.UI || {};
+  const { clamp, abs } = window.UI || {};
 
   // --- 权重入口（以后只改这块）---
   const W = {
@@ -14,76 +14,16 @@
     miss_bz: 0.78,
     miss_bt: 0.85,
     miss_v: 0.85,
+
+    // 「不可观测解释模块」阈值（可调）
+    block_cloud_max_ge: 65,     // 云量遮挡：三层云中“最大值”≥此阈值
+    block_moon_alt_ge: 15,      // 月光干扰：月亮高度 ≥ 15°
+    block_moon_frac_ge: 0.50,   // 月相亮度（0~1）≥ 0.50（半月以上）
+    block_twilight_sun_alt_gt: -18, // 天光干扰：太阳高度 > -18°（未进入天文暗夜）
   };
 
-  // --- AACGMv2 1°×1° 磁纬表（lazy load）---
-  const _AACGM = {
-    ready: false,
-    loading: false,
-    meta: null,
-    grid: null,   // Int16Array, value = mlat*100, -32768 = invalid
-    p: null
-  };
-
-  const _AACGM_META_URL = "data/aacgmv2_mlat_1deg_110km_2026-01-01_meta.json";
-  const _AACGM_BIN_URL  = "data/aacgmv2_mlat_1deg_110km_2026-01-01_i16.bin";
-
-  function _loadAACGMGrid(){
-    if (_AACGM.ready) return Promise.resolve(_AACGM);
-    if (_AACGM.loading && _AACGM.p) return _AACGM.p;
-
-    _AACGM.loading = true;
-    _AACGM.p = Promise.all([
-      fetch(_AACGM_META_URL).then(r => {
-        if(!r.ok) throw new Error("meta fetch failed: " + r.status);
-        return r.json();
-      }),
-      fetch(_AACGM_BIN_URL).then(r => {
-        if(!r.ok) throw new Error("bin fetch failed: " + r.status);
-        return r.arrayBuffer();
-      }),
-    ]).then(([meta, buf]) => {
-      _AACGM.meta = meta;
-
-      // 注意：Int16Array 按平台字节序读；mac/win 基本都是 little-endian（与我们写入一致）
-      _AACGM.grid = new Int16Array(buf);
-
-      _AACGM.ready = true;
-      _AACGM.loading = false;
-      return _AACGM;
-    }).catch(err => {
-      console.warn("[AACGM] grid load failed, fallback to approx:", err);
-      _AACGM.loading = false;
-      _AACGM.p = null;
-      return _AACGM;
-    });
-
-    return _AACGM.p;
-  }
-
-  function _lookupAACGM_mlat(lat, lon){
-    if(!_AACGM.ready || !_AACGM.grid) return null;
-    if(!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-
-    // lat: -90..90 -> idx: 0..180（四舍五入到最近 1°）
-    const latIdx = Math.max(0, Math.min(180, Math.round(lat) + 90));
-
-    // lon wrap to [-180, 180)
-    let lw = ((lon % 360) + 360) % 360;
-    if (lw >= 180) lw -= 360;
-
-    // lon: -180..179 -> idx: 0..359（落到 1°格）
-    let lonIdx = Math.floor(lw + 180);
-    lonIdx = Math.max(0, Math.min(359, lonIdx));
-
-    const idx = latIdx * 360 + lonIdx;
-    const v = _AACGM.grid[idx];
-
-    if (v === -32768) return null; // AACGMv2 在低纬/赤道附近可能无定义
-    return v / 100.0;
-  }
-
-  function _approxMagLatFallback(lat, lon){
+  // 你旧的“近似磁纬”保留（目前已用 AACGM 查表替代，但我不删的）
+  function approxMagLat(lat, lon){
     const poleLat = 80.65;
     const poleLon = -72.68;
     const toRad = (d)=>d*Math.PI/180;
@@ -96,23 +36,6 @@
     return 90 - deg(c);
   }
 
-  function approxMagLat(lat, lon){
-    // 已加载：直接查表
-    const m = _lookupAACGM_mlat(lat, lon);
-    if (m != null) return m;
-
-    // 未加载：触发一次加载（不阻塞），先用旧近似兜底
-    if (!_AACGM.ready && !_AACGM.loading) _loadAACGMGrid();
-    return _approxMagLatFallback(lat, lon);
-  }
-  
-  // ---- debug exports (for Console verification) ----
-  try{
-    window._AACGM = _AACGM;
-    window._loadAACGMGrid = _loadAACGMGrid;
-    window._lookupAACGM_mlat = _lookupAACGM_mlat;
-  }catch(e){}
-  
   function labelByScore5(s){
     if(s >= 5) return { score:5, t:"强烈推荐", cls:"g" };
     if(s >= 4) return { score:4, t:"值得出门", cls:"g" };
@@ -193,6 +116,87 @@
     return (bt >= 6.5) && (bz <= -2.0);
   }
 
+  // -----------------------------
+  // 「不可观测」状态解释模块（PRD）
+  // -----------------------------
+  const ObservationBlocker = {
+    CLOUD_COVER: "CLOUD_COVER",
+    MOONLIGHT: "MOONLIGHT",
+    TWILIGHT: "TWILIGHT",
+    LOW_AURORA_CONTRAST: "LOW_AURORA_CONTRAST",
+  };
+
+  const BlockerText = {
+    [ObservationBlocker.CLOUD_COVER]: "天空被云层遮挡，不利于观测",
+    [ObservationBlocker.MOONLIGHT]: "月光过强，微弱极光难以分辨",
+    [ObservationBlocker.TWILIGHT]: "天色偏亮，背景亮度过高",
+    [ObservationBlocker.LOW_AURORA_CONTRAST]: "极光亮度不足以被当前环境清晰分辨",
+  };
+
+  // 优先级：云 > 月 > 天光 > 对比度不足
+  const BlockerPriority = [
+    ObservationBlocker.CLOUD_COVER,
+    ObservationBlocker.MOONLIGHT,
+    ObservationBlocker.TWILIGHT,
+    ObservationBlocker.LOW_AURORA_CONTRAST,
+  ];
+
+  /**
+   * @param {{
+   *  cloudMax?: number|null,  // 0~100（三层云取最大值）
+   *  moonAltDeg?: number|null,
+   *  moonFrac?: number|null,  // 0~1
+   *  sunAltDeg?: number|null
+   * }} p
+   */
+  function explainUnobservable(p){
+    const cloudMax   = (p?.cloudMax   == null) ? null : Number(p.cloudMax);
+    const moonAltDeg = (p?.moonAltDeg == null) ? null : Number(p.moonAltDeg);
+    const moonFrac   = (p?.moonFrac   == null) ? null : Number(p.moonFrac);
+    const sunAltDeg  = (p?.sunAltDeg  == null) ? null : Number(p.sunAltDeg);
+
+    const hit = new Set();
+
+    // ① 云量遮挡
+    if(cloudMax != null && cloudMax >= W.block_cloud_max_ge){
+      hit.add(ObservationBlocker.CLOUD_COVER);
+    }
+
+    // ② 月光干扰（需要月亮高度 + 月相亮度）
+    if(moonAltDeg != null && moonFrac != null){
+      if(moonAltDeg >= W.block_moon_alt_ge && moonFrac >= W.block_moon_frac_ge){
+        hit.add(ObservationBlocker.MOONLIGHT);
+      }
+    }
+
+    // ③ 天光干扰（太阳高度未低于天文暗夜阈值）
+    if(sunAltDeg != null){
+      if(sunAltDeg > W.block_twilight_sun_alt_gt){
+        hit.add(ObservationBlocker.TWILIGHT);
+      }
+    }
+
+    // ④ 兜底：极光对比度不足（只在前 3 项都不成立时）
+    const anyTop3 = hit.has(ObservationBlocker.CLOUD_COVER)
+      || hit.has(ObservationBlocker.MOONLIGHT)
+      || hit.has(ObservationBlocker.TWILIGHT);
+
+    if(!anyTop3){
+      hit.add(ObservationBlocker.LOW_AURORA_CONTRAST);
+    }
+
+    const ordered = BlockerPriority.filter(k => hit.has(k));
+    const primary = ordered[0] || ObservationBlocker.LOW_AURORA_CONTRAST;
+    const secondary = ordered[1] || null;
+
+    return {
+      primary,
+      secondary,
+      primaryText: BlockerText[primary],
+      secondaryText: secondary ? BlockerText[secondary] : null,
+    };
+  }
+
   // 暴露给 app.js
   window.Model = {
     W,
@@ -204,5 +208,8 @@
     state3h,
     p1a_fastWind,
     p1b_energyInput,
+
+    ObservationBlocker,
+    explainUnobservable,
   };
 })();
