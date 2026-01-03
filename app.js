@@ -43,6 +43,11 @@
      (uiReady() && typeof window.UI.getMoonAltDeg === "function")
        ? window.UI.getMoonAltDeg(d, lat, lon)
        : -999;
+
+   const getSunAltDeg = (d, lat, lon) =>
+     (uiReady() && typeof window.UI.getSunAltDeg === "function")
+       ? window.UI.getSunAltDeg(d, lat, lon)
+       : -999;
    
    const moonFactorByLat = (lat, moonAltDeg) =>
      (uiReady() && typeof window.UI.moonFactorByLat === "function")
@@ -358,10 +363,12 @@ function bestCloud3h(openMeteoJson, baseDate){
       const vals = [];
       const cols = [];
       let heroScore = 1;
+      let heroGate = null; // first bin gate snapshot
 
       for(let i=0;i<6;i++){
         const d = new Date(baseDate.getTime() + (i+1)*10*60000);
         const gate = obsGate(d, lat, lon);
+        if(i===0) heroGate = gate;
 
         // 月角因子（后台）
         const moonAlt = getMoonAltDeg(d, lat, lon);
@@ -420,9 +427,48 @@ function bestCloud3h(openMeteoJson, baseDate){
         ovaTxt = ova?.ok ? "OK" : "—";
       }
       
-      safeText(
+      // ----- "不可观测" 解释（仅当 1h=1分 且非 hardBlock 时触发）-----
+      let blockerHTML = "";
+      try{
+        if(heroScore === 1 && heroGate && !heroGate.hardBlock && typeof window.Model?.explainUnobservable === "function"){
+          // 云量：三层云取最大值（不向用户区分高/中/低云）
+          let cloudMax = null;
+          if(clouds?.ok && clouds?.data){
+            const best = bestCloud3h(clouds.data, baseDate);
+            if(best && Number.isFinite(best.low) && Number.isFinite(best.mid) && Number.isFinite(best.high)){
+              cloudMax = Math.max(Number(best.low), Number(best.mid), Number(best.high));
+            }
+          }
+
+          // 太阳/月亮高度
+          const sunAltDeg = getSunAltDeg(baseDate, lat, lon);
+          const moonAltDeg = getMoonAltDeg(baseDate, lat, lon);
+
+          // 月相亮度 fraction（0~1）
+          let moonFrac = null;
+          try{
+            if(window.SunCalc?.getMoonIllumination){
+              const mi = SunCalc.getMoonIllumination(baseDate);
+              if(mi && mi.fraction != null) moonFrac = Number(mi.fraction);
+            }
+          }catch(_){ moonFrac = null; }
+
+          const ex = window.Model.explainUnobservable({ cloudMax, moonAltDeg, moonFrac, sunAltDeg });
+
+          blockerHTML = `
+            <div class="blockerExplain">
+              <div>主要原因：${escapeHTML(ex.primaryText || "—")}</div>
+              ${ex.secondaryText ? `<div>次要因素：${escapeHTML(ex.secondaryText)}</div>` : ``}
+            </div>
+          `;
+        }
+      }catch(e){
+        blockerHTML = "";
+      }
+
+      safeHTML(
         $("oneHeroMeta"),
-        `本地时间：${fmtYMDHM(baseDate)} ・ OVATION：${ovaTxt}`
+        `本地时间：${escapeHTML(fmtYMDHM(baseDate))} ・ OVATION：${escapeHTML(ovaTxt)}${blockerHTML}`
       );
 
       renderChart(labels, vals, cols);
@@ -552,16 +598,6 @@ function bestCloud3h(openMeteoJson, baseDate){
 
     $("btnRun")?.addEventListener("click", run);
 
-    $("btnMag")?.addEventListener("click", ()=>{
-      const lat = Number($("lat")?.value);
-      const lon = Number($("lon")?.value);
-      if(!Number.isFinite(lat) || !Number.isFinite(lon)){
-        setStatusText("请先输入有效经纬度。");
-        return;
-      }
-      const m = window.Model.approxMagLat(lat, lon);
-      alert(`磁纬约 ${Math.round(m * 10) / 10}°`);
-    });
   }
       document.addEventListener("DOMContentLoaded", () => {
         const t0 = Date.now();
