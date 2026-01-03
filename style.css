@@ -170,6 +170,8 @@ input::placeholder{color:rgba(255,255,255,.35)}
 
 .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
 .actions{margin-top:10px}
+/* actions 行：按钮并列，提示独占下一行 */
+.actions .hint{flex: 0 0 100%;}
 .hint{color:var(--muted2); font-size:12px}
 
 .btn{
@@ -777,11 +779,23 @@ canvas{width:100% !important; height:100% !important}
   .threeSlots{gap: 8px}
   .threeSlots .slot{padding: 10px 12px}
 
-  /* 移动端 Header：避免标题被挤得奇怪换行 */
-  .brand{ align-items:center; }
-  .logo{ width:40px; height:40px; border-radius:13px; }
-  .titleBlock h1{ font-size: 22px; line-height: 1.15; flex-wrap: wrap; }
-  .titleBlock h1 .cn{ font-size: 20px; }
+  /* 移动端 Header：logo + 标题更大，信息更像“工具品牌” */
+  .head{ margin-bottom: 10px; }
+  .brand{ align-items: center; }
+  .logo{ width:56px; height:56px; border-radius:16px; }
+  .titleRow{ flex-wrap: wrap; }
+  .titleBlock h1{
+    font-size: 28px;
+    line-height: 1.06;
+    flex-wrap: wrap;
+  }
+  /* 中文强制换到第二行，更干净 */
+  .titleBlock h1 .cn{
+    display: block;
+    font-size: 24px;
+    margin-top: 6px;
+    opacity: .9;
+  }
 }
 /* ========== NOAA 强提示弹窗（alertOverlay）完全独立，避免和 aboutModal 冲突 ========== */
 .alertOverlay{
@@ -960,59 +974,47 @@ section > .fullWidthStack {
   width: min(1100px, 92vw);
   margin: 0 auto;
 }
-/* ===== Mobile header layout fix ===== */
+/* ===== Mobile (small) : keep big brand, keep buttons usable ===== */
 @media (max-width: 520px) {
+  .wrap{ margin: 18px auto 34px; }
+
   .brandRow{
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
   }
 
   .brand{
-    align-items: flex-start;     /* 关键：别让 logo 垂直居中顶歪标题 */
-    gap: 10px;
+    align-items: flex-start;
+    gap: 12px;
   }
 
+  /* 小屏也尽量大：logo 仍然是主视觉 */
   .logo{
-    width: 28px;                 /* 移动端更紧凑 */
-    height: 28px;
-    margin-right: 10px;
-    margin-top: 2px;             /* 关键：让 logo 跟第一行标题对齐 */
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
   }
 
-  .titleRow{
-    align-items: baseline;
-    gap: 8px;
-    flex-wrap: wrap;             /* 允许换行，但换得更自然 */
-  }
+  .titleRow{ gap: 10px; }
 
   .titleRow h1{
-    font-size: 22px;             /* 压一点字号，不然移动端太“撑” */
-    line-height: 1.15;
+    font-size: 30px;
+    line-height: 1.05;
     margin: 0;
   }
 
-  .titleRow .cn{
-    display: block;              /* 中文强制到第二行，干净 */
-    font-size: 20px;
-    opacity: .9;
-    margin-top: 4px;
-  }
-
-  .ver{
-    margin-left: 0;
-    margin-top: 6px;             /* 版本号放得稳一点 */
-    display: inline-flex;
-  }
-
-  .subtitle{
-    font-size: 13px;             /* 让说明更像“注释”，别抢标题 */
-    line-height: 1.35;
+  .titleRow h1 .cn{
+    display: block;
+    font-size: 25px;
     margin-top: 6px;
-    opacity: .75;
+    opacity: .9;
   }
 
-  #btnAbout{
-    padding: 8px 12px;           /* 右上角按钮更像手机按钮 */
-    height: auto;
-  }
+  /* 顶部按钮已移到 actions，不再需要为 header 的 btnAbout 做布局兜底 */
+
+  /* actions：两按钮尽量并列，空间不够就自然换行 */
+  .actions{ gap: 10px; }
+  .actions .btn{ height: 44px; }
+  .actions .btn.ghost{ border-radius: 14px; height: 44px; }
+  .actions .hint{ margin-top: 2px; }
 }

@@ -335,7 +335,7 @@ function _cloudTotal(low, mid, high){
 
       // 位置门槛（不解释）
       if(abs(lat) < 50){
-        safeHTML($("oneHeroLabel"), `<span class="${cClass(1)} cText">1分</span> 不可观测`);
+        safeHTML($("oneHeroLabel"), `<span style="color:${cColor(1)} !important;">1分 不可观测</span>`);
         safeText($("oneHeroMeta"), "—");
         safeText($("swLine"), "V — ｜ Bt — ｜ Bz — ｜ N —");
         safeText($("swMeta"), "—");

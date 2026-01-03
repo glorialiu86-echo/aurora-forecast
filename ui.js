@@ -130,13 +130,50 @@
 
     if(!modal || !btn) return;
 
+    // --- Tool intro (replaces “背景介绍”) ---
+    const TOOL_TITLE = "工具介绍";
+    const TOOL_HTML = `
+      <div class="aboutLead">
+        输入经纬度 → 生成关于极光<strong>可见性 / 可拍性</strong>的即时预测（1小时 / 3小时 / 72小时）。
+      </div>
+      <div class="aboutNote">
+        结果会综合太阳高度（可观测窗口）、云量、月光影响、太阳风与 Kp/OVATION 等数据。
+      </div>
+      <div class="aboutHint">
+        <span class="muted">小提示：</span>若数据源短暂断流，页面会自动使用最近缓存，并提示数据时间。
+      </div>
+    `;
+
+    function setModalTitle(){
+      // Prefer explicit ids if you have them
+      const t1 = $("aboutTitle");
+      if(t1){ t1.textContent = TOOL_TITLE; return; }
+
+      // Otherwise: first heading inside modal
+      const h = modal.querySelector("h1,h2,h3");
+      if(h) h.textContent = TOOL_TITLE;
+    }
+
+    function setModalBody(){
+      // Prefer explicit ids if you have them
+      const b1 = $("aboutBody");
+      if(b1){ b1.innerHTML = TOOL_HTML; return; }
+
+      // Otherwise: try common modal content containers
+      const box = modal.querySelector(".modalBody,.modal-body,.content,.body,.aboutBody");
+      if(box) box.innerHTML = TOOL_HTML;
+    }
+
     const open = () => {
+      setModalTitle();
+      setModalBody();
       modal.classList.remove("hidden");
       modal.setAttribute("aria-hidden", "false");
     };
     const hide = () => {
       modal.classList.add("hidden");
       modal.setAttribute("aria-hidden", "true");
+      try{ btn.focus?.(); }catch(e){}
     };
 
     btn.addEventListener("click", open);
