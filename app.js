@@ -427,10 +427,10 @@ function bestCloud3h(openMeteoJson, baseDate){
         ovaTxt = ova?.ok ? "OK" : "—";
       }
       
-      // ----- "不可观测" 解释（仅当 1h=1分 且非 hardBlock 时触发）-----
+      // ----- 观测限制解释（C=1/2/3 时显示，且非 hardBlock）-----
       let blockerHTML = "";
       try{
-        if(heroScore === 1 && heroGate && !heroGate.hardBlock && typeof window.Model?.explainUnobservable === "function"){
+        if(heroScore <= 3 && heroGate && !heroGate.hardBlock && typeof window.Model?.explainUnobservable === "function"){
           // 云量：三层云取最大值（不向用户区分高/中/低云）
           let cloudMax = null;
           if(clouds?.ok && clouds?.data){
@@ -440,8 +440,8 @@ function bestCloud3h(openMeteoJson, baseDate){
             }
           }
 
-          // 太阳/月亮高度
-          const sunAltDeg = getSunAltDeg(baseDate, lat, lon);
+          // 太阳 / 月亮高度
+          const sunAltDeg  = getSunAltDeg(baseDate, lat, lon);
           const moonAltDeg = getMoonAltDeg(baseDate, lat, lon);
 
           // 月相亮度 fraction（0~1）
@@ -455,16 +455,18 @@ function bestCloud3h(openMeteoJson, baseDate){
 
           const ex = window.Model.explainUnobservable({ cloudMax, moonAltDeg, moonFrac, sunAltDeg });
 
+          const titleMap = { 1: "不可观测原因", 2: "观测受限原因", 3: "观测受限因素" };
+          const title = titleMap[heroScore] || "观测限制";
+
           blockerHTML = `
-            <div class="blockerExplain">
-              <div>主要原因：${escapeHTML(ex.primaryText || "—")}</div>
+            <div class="blockerExplain s${heroScore}">
+              <div class="blockerTitle">${escapeHTML(title)}</div>
+              <div>主要因素：${escapeHTML(ex.primaryText || "—")}</div>
               ${ex.secondaryText ? `<div>次要因素：${escapeHTML(ex.secondaryText)}</div>` : ``}
             </div>
           `;
         }
-      }catch(e){
-        blockerHTML = "";
-      }
+      }catch(e){ blockerHTML = ""; }
 
       safeHTML(
         $("oneHeroMeta"),
