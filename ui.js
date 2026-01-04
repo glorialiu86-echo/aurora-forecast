@@ -130,12 +130,11 @@
   }
 
   function applyLang(lang){
-    // 1) Header language toggle (single button shows the OTHER language)
-    const btnLang = $("btnLang");
-    if(btnLang){
-      // show target language (tap to switch)
-      btnLang.textContent = (lang === "en") ? "CN" : "EN";
-      btnLang.setAttribute("data-lang", lang);
+    // 1) Header language toggle (CN|EN)
+    const lt = $("langToggle");
+    if(lt){
+      const opts = Array.from(lt.querySelectorAll(".langOpt"));
+      opts.forEach(b => b.classList.toggle("active", (b.dataset.lang || "cn") === lang));
     }
 
     // 2) About modal title + body switching (CN experience must remain unchanged by default)
@@ -211,16 +210,18 @@
   }
 
   function initLangToggle(){
-    const btn = $("btnLang");
-    if(!btn) return;
+    const lt = $("langToggle");
+    if(!lt) return;
 
     // init from cache
     applyLang(getLang());
 
-    btn.addEventListener("click", () => {
-      const cur = getLang();
-      const next = (cur === "en") ? "cn" : "en";
-      setLang(next);
+    const opts = Array.from(lt.querySelectorAll(".langOpt"));
+    opts.forEach(b => {
+      b.addEventListener("click", () => {
+        const v = (b.dataset.lang === "en") ? "en" : "cn";
+        setLang(v);
+      });
     });
   }
 

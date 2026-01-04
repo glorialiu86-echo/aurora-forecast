@@ -116,6 +116,45 @@ body{
   background: rgba(255,255,255,.05);
 }
 
+/* CN|EN segmented toggle */
+.langToggle{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  border-radius: 999px;
+  padding: 5px 9px;
+  user-select: none;
+  line-height: 1;
+}
+
+.langToggle .langOpt{
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,.60);
+  font-size: 11px;
+  letter-spacing: .2px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.langToggle .langOpt:hover{
+  color: rgba(255,255,255,.92);
+}
+
+.langToggle .langOpt.active{
+  color: rgba(255,255,255,.92);
+}
+
+.langToggle .langSep{
+  color: rgba(255,255,255,.30);
+  font-size: 11px;
+  line-height: 1;
+}
+
 .brand{
   display:flex;
   gap:14px;
@@ -703,6 +742,9 @@ canvas{width:100% !important; height:100% !important}
     padding: 4px 8px;
     font-size: 10px;
   }
+  .langToggle{ padding: 4px 8px; }
+  .langToggle .langOpt{ font-size: 10px; }
+  .langToggle .langSep{ font-size: 10px; }
 
   /* Mobile: language button on its own row (index.html places .headRight below .brandRow) */
   .headRight{
