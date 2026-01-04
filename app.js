@@ -1229,8 +1229,9 @@ function fillCurrentLocation(){
         const cols = vals.map(v => "rgba(255,255,255,.14)");
         renderChart(labels, vals, cols);
 
+        // For 3-hour burst model: only state (big word) and one-line hint
         safeText($("threeState"), "静默");
-        safeText($("threeBurst"), "—");
+        safeText($("threeBurst"), _tIfEN("磁纬过低，已停止生成", "MLAT too low. Generation stopped."));
         safeText($("threeDeliver"), "—");
         safeText($("threeDeliverMeta"), "—");
 
@@ -1796,73 +1797,15 @@ function fillCurrentLocation(){
       const maxScore = Math.max.apply(null, slots.map(s => s.score5));
       const best = slots.filter(s => s.score5 === maxScore);
 
-      // 3h: remove redundant "window winner" wording; hour cards already express it clearly
-      safeText($("threeState"), "");
+      // 3h burst model: show only the state (big) + one-line hint (small)
+      const burstStateCN = (s3Burst && s3Burst.state) ? String(s3Burst.state) : "—";
+      const burstHintCN  = (s3Burst && s3Burst.hint)  ? String(s3Burst.hint)  : "—";
 
-      const fmtWin = (s) => `${fmtHM(s.start)}–${fmtHM(s.end)}`;
+      // big word (静默/爆发)
+      safeText($("threeState"), burstStateCN);
 
-      // 3小时三卡：按 72h 同款 dayCard 模板渲染（结论/底色跟随 C 值）
-      const map5 = {
-        5: { t: "强烈推荐", cls: "c5" },
-        4: { t: "值得出门", cls: "c4" },
-        3: { t: "可蹲守", cls: "c3" },
-        2: { t: "低概率", cls: "c2" },
-        1: { t: "不可观测", cls: "c1" },
-      };
-
-      slots.forEach((s, i) => {
-        safeText($("threeSlot"+i+"Time"), fmtWin(s));
-        const score = Number.isFinite(s.score5) ? clamp(Math.round(s.score5), 1, 5) : 1;
-        const lab = map5[score] || map5[1];
-
-        const slotAllowPlus = (score >= 2 && score <= 4);
-        const slotConclusionText = translateConclusionTextIfEN(lab.t);
-        const slotConclusionInner = `${escapeHTML(String(slotConclusionText))}`;
-        safeHTML($("threeSlot"+i+"Conclusion"), maybePlusWrap(slotConclusionInner, slotAllowPlus));
-        safeText($("threeSlot"+i+"Note"), actionNote1h(score, { hardBlock:false }));
-
-        // 仅显示一个主要影响因素（当 score<=2 且有 factorText）
-        const reasonCN = (score <= 2 && s.factorText)
-          ? `主要影响因素：${s.factorText}`
-          : (score === 1 ? "主要影响因素：天色偏亮，微弱极光难以分辨" : "—");
-
-        let reason = reasonCN;
-        if(getLangSafe() === "en"){
-          if(reasonCN.startsWith("主要影响因素：")){
-            const core = reasonCN.replace(/^主要影响因素：\s*/, "");
-            reason = primaryPrefixIfEN() + translateReasonIfEN(core);
-          }
-        }
-
-        // Scheme A: add trend explanation line when "+" is on
-        const reasonHtml = `<div>${escapeHTML(reason)}</div>` + (trendPlus?.on ? trendExplainInline() : "");
-        safeHTML($("threeSlot"+i+"Reason"), reasonHtml);
-
-        const card = $("threeSlot"+i);
-        if(card) card.className = `dayCard ${lab.cls}${s.score5 === maxScore ? " best" : ""}`;
-      });
-
-      // 旧版列表容器（兼容：若仍存在则清空，避免残留）
-      if($("threeHint")) safeHTML($("threeHint"), "");
-
-      const bestWindows = best.map(fmtWin).join(" / ");
-      const bestLine = (best.length >= 2)
-        ? `并列最佳：${bestWindows}`
-        : `最佳窗口：${bestWindows}`;
-
-      const burstText = (s3Burst && s3Burst.state)
-        ? `爆发状态：${s3Burst.state}${s3Burst.hint ? ` · ${s3Burst.hint}` : ""}`
-        : "—";
-
-      const burstNote = _tIfEN(
-        "爆发 ≠ 可观测，仍受云量与天光影响。",
-        "Burst \u2260 observable. Visibility still depends on clouds and sky brightness."
-      );
-
-      safeText(
-        $("threeBurst"),
-        burstText + (burstText !== "—" ? `  ｜  ${burstNote}` : "")
-      );
+      // one-line hint under the big word
+      safeText($("threeBurst"), burstHintCN);
 
       // 如果你以后想在 hero 里加一行“并列最佳/最佳窗口”，这里预留：
       // safeText($("threeBestLine"), bestLine);
