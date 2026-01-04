@@ -192,12 +192,9 @@ input::placeholder{color:rgba(255,255,255,.35)}
   border-color: rgba(91,124,255,.35);
 }
 .btn.primary:hover{filter:brightness(1.04)}
-/* actions：主按钮 + 工具介绍 按钮同等尺寸与对齐 */
+/* actions：只保留两枚按钮（获取位置 / 生成预测），同高同重量 */
 .actions .btn{
   font-size: 14px;
-}
-.actions .btn.primary,
-.actions .btn.ghost{
   height: 44px;
   padding: 0 16px;
   border-radius: 14px;
@@ -206,21 +203,24 @@ input::placeholder{color:rgba(255,255,255,.35)}
   justify-content: center;
 }
 
-/* 获取位置按钮：与“生成即时预测”同权重，不弱化 */
-#btnGeo.btn.primary{
-  gap: 8px;                 /* 图标与文字的呼吸感 */
+/* 次级按钮（仍然要有重量感，但不抢主按钮） */
+.btn.secondary{
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.14);
+}
+.btn.secondary:hover{ background: rgba(255,255,255,.07); }
+
+/* 获取位置按钮：与主按钮同级存在感（不弱化） */
+#btnGeo.btn.secondary{
+  gap: 8px;
   letter-spacing: .2px;
 }
 
-/* actions 行：三个按钮视觉均衡 */
-.actions{
-  align-items: center;
-}
-
-/* 移动端：主按钮保持同等存在感 */
+/* 移动端：两按钮尽量并列，不够就自然换行 */
 @media (max-width: 520px){
-  #btnGeo.btn.primary{
-    flex: 1 1 auto;         /* 与生成预测同级 */
+  #btnGeo.btn.secondary,
+  #btnRun.btn.primary{
+    flex: 1 1 auto;
   }
 }
 .btn.ghost{
@@ -235,6 +235,16 @@ input::placeholder{color:rgba(255,255,255,.35)}
 .btn.ghost:hover{
   background: rgba(70, 210, 150, .14);
   border-color: rgba(70, 210, 150, .42);
+}
+/* If btnHelp also has .ghost, force the downgraded look */
+.btn.ghost.btnHelp{
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.68);
+}
+.btn.ghost.btnHelp:hover{
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.16);
 }
 .btn.icon{
   width:36px;
@@ -302,7 +312,38 @@ input::placeholder{color:rgba(255,255,255,.35)}
 
 .tabs{
   margin: 14px 0 10px;
-  display:flex; gap:10px; flex-wrap:wrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tabsLeft{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* tabs 旁的“工具介绍”：降权一点，不打断决策流 */
+.btnHelp{
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.68);
+}
+.btnHelp:hover{
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.16);
+}
+
+@media (max-width: 520px){
+  .btnHelp{
+    flex: 1 1 100%;
+  }
 }
 .tab{
   height:38px;
