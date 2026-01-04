@@ -60,7 +60,9 @@
     return String(s)
       .replaceAll("&","&amp;")
       .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;");
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
   }
 
   // ---------- astro (SunCalc required) ----------
@@ -278,10 +280,12 @@
       const t = await r.text();
       if(!t) throw new Error("empty");
       const j = JSON.parse(t);
-      cacheSet("cache_clouds", { lat, lon, j });
+      const k = `cache_clouds_${Number(lat).toFixed(2)}_${Number(lon).toFixed(2)}`;
+      cacheSet(k, { lat, lon, j });
       return { ok:true, note:"✅ 云量已更新", data:j };
     }catch(e){
-      const c = cacheGet("cache_clouds");
+      const k = `cache_clouds_${Number(lat).toFixed(2)}_${Number(lon).toFixed(2)}`;
+      const c = cacheGet(k);
       if(c?.value?.j){
         return { ok:true, note:`⚠️ 云量拉取失败，使用缓存（${fmtAge(Date.now() - (c.ts || Date.now()))}）`, data:c.value.j };
       }

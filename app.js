@@ -1,21 +1,46 @@
-window.MODEL_CONFIG = {
-  aacgmEndpoint: "https://<你的接口地址>/aacgmv2/mlat"
-};
+// 不在 app.js 里写死远程 AACGMv2 endpoint，避免覆盖 index.html 的配置与引发失败回退。
+// 当前采用离线“近似 AACGMv2 语境”的磁纬（model.js 的 approxMagLat / aacgmV2MagLat 已统一为本地计算）。
+window.MODEL_CONFIG = window.MODEL_CONFIG || { aacgmEndpoint: "" };
 
 // --- UI proxies (robust against load-order / cache) ---
-   const uiReady = () =>
-     window.UI &&
-     typeof window.UI.$ === "function" &&
-     typeof window.UI.safeText === "function";
-   
-   const $ = (id) => (uiReady() ? window.UI.$(id) : null);
-   
-   const clamp = (x, a, b) => (uiReady() ? window.UI.clamp(x, a, b) : x);
-   const round0 = (x) => (uiReady() ? window.UI.round0(x) : x);
-   const abs = (x) => (uiReady() ? window.UI.abs(x) : Math.abs(x));
-   
-   const safeText = (el, t) => { if (uiReady()) window.UI.safeText(el, t); };
-   const safeHTML = (el, h) => { if (uiReady()) window.UI.safeHTML(el, h); };
+const uiReady = () =>
+  window.UI &&
+  typeof window.UI.$ === "function" &&
+  typeof window.UI.safeText === "function";
+
+// Fallback to raw DOM APIs when UI.js is not ready (prevents occasional blank renders)
+const $ = (id) => (uiReady() ? window.UI.$(id) : document.getElementById(id));
+
+const clamp = (x, a, b) => {
+  const v = Number(x);
+  if(!Number.isFinite(v)) return v;
+  const lo = Number(a), hi = Number(b);
+  if(!Number.isFinite(lo) || !Number.isFinite(hi)) return v;
+  return Math.min(hi, Math.max(lo, v));
+};
+
+const round0 = (x) => {
+  const v = Number(x);
+  return Number.isFinite(v) ? Math.round(v) : v;
+};
+
+const abs = (x) => Math.abs(Number(x));
+
+const safeText = (el, t) => {
+  if(!el) return;
+  try{
+    if(uiReady()) return window.UI.safeText(el, t);
+    el.textContent = (t == null ? "" : String(t));
+  }catch(_){ /* ignore */ }
+};
+
+const safeHTML = (el, h) => {
+  if(!el) return;
+  try{
+    if(uiReady()) return window.UI.safeHTML(el, h);
+    el.innerHTML = (h == null ? "" : String(h));
+  }catch(_){ /* ignore */ }
+};
 
 // --- Solar wind placeholder HTML (.swMain/.swAux layout) ---
 const SW_PLACEHOLDER_HTML = `
@@ -33,25 +58,108 @@ const SW_PLACEHOLDER_HTML = `
     <span class="swAuxItem">月角 —°</span>
   </div>
 `;
-   
-   const setStatusDots = (items) => { if (uiReady()) window.UI.setStatusDots(items); };
-   const setStatusText = (t) => { if (uiReady()) window.UI.setStatusText(t); };
-   
-   const cacheSet = (k, v) => { if (uiReady()) window.UI.cacheSet(k, v); };
-   const cacheGet = (k) => (uiReady() ? window.UI.cacheGet(k) : null);
-   const fmtAge = (ms) => (uiReady() ? window.UI.fmtAge(ms) : "");
-   
-   const now = () => (uiReady() ? window.UI.now() : new Date());
-   const fmtYMD = (d) => (uiReady() ? window.UI.fmtYMD(d) : "");
-   const fmtHM = (d) => (uiReady() ? window.UI.fmtHM(d) : "");
-   const fmtYMDHM = (d) => (uiReady() ? window.UI.fmtYMDHM(d) : "");
-   
-   const escapeHTML = (s) => (uiReady() ? window.UI.escapeHTML(s) : String(s));
-   const renderChart = (labels, vals, cols) => { if (uiReady()) window.UI.renderChart(labels, vals, cols); };
-   const badgeHTML = (text, cls) => (uiReady() ? window.UI.badgeHTML(text, cls) : "");
-   
-   const initTabs = () => { if (uiReady() && typeof window.UI.initTabs === "function") window.UI.initTabs(); };
-   const initAbout = () => { if (uiReady() && typeof window.UI.initAbout === "function") window.UI.initAbout(); };
+// --- status / cache / format helpers (must work even when UI.js is not ready) ---
+const setStatusText = (t) => {
+  const el = document.getElementById("statusText");
+  if(el) el.textContent = (t == null ? "" : String(t));
+  if(uiReady() && typeof window.UI.setStatusText === "function"){
+    try{ window.UI.setStatusText(t); }catch(_){ /* ignore */ }
+  }
+};
+
+const setStatusDots = (items) => {
+  // Prefer UI renderer when available
+  if(uiReady() && typeof window.UI.setStatusDots === "function"){
+    try{ window.UI.setStatusDots(items); return; }catch(_){ /* fall through */ }
+  }
+  // Fallback: render simple text list
+  const wrap = document.getElementById("statusDots");
+  if(!wrap) return;
+  const arr = Array.isArray(items) ? items : [];
+  wrap.innerHTML = arr.map(it => {
+    const lvl = (it && it.level) ? String(it.level) : "warn";
+    const txt = (it && it.text) ? String(it.text) : "";
+    return `<span class="dot ${lvl}"></span><span class="dotText">${escapeHTML(txt)}</span>`;
+  }).join(" ");
+};
+
+const cacheSet = (k, v) => {
+  try{
+    if(uiReady() && typeof window.UI.cacheSet === "function") return window.UI.cacheSet(k, v);
+  }catch(_){ /* ignore */ }
+  try{ localStorage.setItem(String(k), JSON.stringify(v)); }catch(_){ /* ignore */ }
+};
+
+const cacheGet = (k) => {
+  try{
+    if(uiReady() && typeof window.UI.cacheGet === "function") return window.UI.cacheGet(k);
+  }catch(_){ /* ignore */ }
+  try{
+    const raw = localStorage.getItem(String(k));
+    return raw ? JSON.parse(raw) : null;
+  }catch(_){
+    return null;
+  }
+};
+
+const fmtAge = (ms) => {
+  const m = Number(ms);
+  if(!Number.isFinite(m)) return "";
+  const sec = Math.max(0, Math.round(m/1000));
+  if(sec < 60) return `${sec}s`;
+  const min = Math.round(sec/60);
+  if(min < 60) return `${min}m`;
+  const hr = Math.round(min/60);
+  return `${hr}h`;
+};
+
+const now = () => {
+  try{ if(uiReady() && typeof window.UI.now === "function") return window.UI.now(); }catch(_){ /* ignore */ }
+  return new Date();
+};
+
+const _pad2 = (n) => String(n).padStart(2, "0");
+const fmtYMD = (d) => {
+  try{ if(uiReady() && typeof window.UI.fmtYMD === "function") return window.UI.fmtYMD(d); }catch(_){ /* ignore */ }
+  const x = (d instanceof Date) ? d : new Date(d);
+  return `${x.getFullYear()}-${_pad2(x.getMonth()+1)}-${_pad2(x.getDate())}`;
+};
+const fmtHM = (d) => {
+  try{ if(uiReady() && typeof window.UI.fmtHM === "function") return window.UI.fmtHM(d); }catch(_){ /* ignore */ }
+  const x = (d instanceof Date) ? d : new Date(d);
+  return `${_pad2(x.getHours())}:${_pad2(x.getMinutes())}`;
+};
+const fmtYMDHM = (d) => {
+  try{ if(uiReady() && typeof window.UI.fmtYMDHM === "function") return window.UI.fmtYMDHM(d); }catch(_){ /* ignore */ }
+  const x = (d instanceof Date) ? d : new Date(d);
+  return `${fmtYMD(x)} ${fmtHM(x)}`;
+};
+
+const escapeHTML = (s) => {
+  try{ if(uiReady() && typeof window.UI.escapeHTML === "function") return window.UI.escapeHTML(s); }catch(_){ /* ignore */ }
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+};
+
+const renderChart = (labels, vals, cols) => {
+  try{
+    if(uiReady() && typeof window.UI.renderChart === "function") window.UI.renderChart(labels, vals, cols);
+  }catch(e){
+    console.error("[AuroraCapture] renderChart error:", e);
+  }
+};
+
+const badgeHTML = (text, cls) => {
+  try{ if(uiReady() && typeof window.UI.badgeHTML === "function") return window.UI.badgeHTML(text, cls); }catch(_){ /* ignore */ }
+  return `<span class="badge ${escapeHTML(cls||"")}">${escapeHTML(text||"")}</span>`;
+};
+
+const initTabs = () => { if (uiReady() && typeof window.UI.initTabs === "function") { try{ window.UI.initTabs(); }catch(_){ } } };
+const initAbout = () => { if (uiReady() && typeof window.UI.initAbout === "function") { try{ window.UI.initAbout(); }catch(_){ } } };
 
    const showAlertModal = (html) => { if (uiReady() && typeof window.UI.showAlertModal === "function") window.UI.showAlertModal(html); };
 
@@ -120,7 +228,7 @@ const SW_PLACEHOLDER_HTML = `
 
    function mlatGateHtml(absM){
      return (
-       `当前位置磁纬约 <b>${absM.toFixed(1)}°</b>（|MLAT|，估算值）。<br>` +
+       `当前位置磁纬约 <b>${absM.toFixed(1)}°</b>（|MLAT|，近似值）。<br>` +
        `当 <b>|MLAT| &lt; ${MLAT_STRONG_WARN}°</b> 时，极光可见性高度依赖<strong>极端磁暴</strong>与<strong>北向开阔地平线</strong>，不适合“常规出门拍”的决策。<br>` +
        `建议：尽量提高磁纬（靠近/进入极光椭圆边缘）再使用本工具。`
      );
@@ -131,7 +239,7 @@ const SW_PLACEHOLDER_HTML = `
      openAlertOverlayFull(
        "⚠️ 磁纬限制：不可观测",
        (
-         `当前位置磁纬约 <b>${absM.toFixed(1)}°</b>（|MLAT|，估算值）。<br>` +
+         `当前位置磁纬约 <b>${absM.toFixed(1)}°</b>（|MLAT|，近似值）。<br>` +
          `当 <b>|MLAT| &lt; ${MLAT_HARD_STOP}°</b> 时，极光几乎不可能到达你的可见范围。<br>` +
          `这是硬性地理限制：无论 Kp / Bz / 速度如何，都不建议投入等待与拍摄。`
        ),
@@ -721,7 +829,7 @@ function _cloudTotal(low, mid, high){
         const moonF = moonFactorByLat(lat, moonAlt);
 
         // 磁纬轻微因子（后台）
-        const latBoost = clamp((mlat - 55) / 12, 0, 1);
+        const latBoost = Number.isFinite(mlat) ? clamp((mlat - 55) / 12, 0, 1) : 0;
         const latF = 0.85 + latBoost*0.15;
 
         // 保守外推：逐步衰减
@@ -896,7 +1004,7 @@ function _cloudTotal(low, mid, high){
         const moonAlt = getMoonAltDeg(mid, lat, lon);
         const moonF = moonFactorByLat(lat, moonAlt);
 
-        const latBoost = clamp((mlat - 55) / 12, 0, 1);
+        const latBoost = Number.isFinite(mlat) ? clamp((mlat - 55) / 12, 0, 1) : 0;
         const latF = 0.85 + latBoost*0.15;
 
         // 1h 的 10min 外推是 0.92^i；这里按“每小时 = 6 个 bin”做同口径衰减
@@ -1117,17 +1225,6 @@ function _cloudTotal(low, mid, high){
     document.getElementById("alertOk")?.addEventListener("click", closeAlertOverlay);
 
   }
-      document.addEventListener("DOMContentLoaded", () => {
-        const t0 = Date.now();
-        const tick = () => {
-          if (uiReady()) return bootstrap();
-          if (Date.now() - t0 > 3000) {
-            console.error("[AuroraCapture] UI not ready (ui.js maybe not loaded).");
-            return;
-          }
-          setTimeout(tick, 50);
-        };
-        tick();
-      });
+  document.addEventListener("DOMContentLoaded", bootstrap);
 
 getRealtimeState().then(s => console.log("RealtimeState", s)).catch(e => console.error(e));

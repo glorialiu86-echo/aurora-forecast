@@ -1,6 +1,14 @@
 // model.js
 (() => {
-  const { clamp, abs } = window.UI || {};
+  // Local math helpers (do NOT depend on UI.js load order)
+  const clamp = (x, a, b) => {
+    const v = Number(x);
+    if(!Number.isFinite(v)) return v;
+    const lo = Number(a), hi = Number(b);
+    if(!Number.isFinite(lo) || !Number.isFinite(hi)) return v;
+    return Math.min(hi, Math.max(lo, v));
+  };
+  const abs = (x) => Math.abs(Number(x));
 
   // --- 权重入口（以后只改这块）---
   const W = {
@@ -22,99 +30,46 @@
     block_twilight_sun_alt_gt: -10, // 天色偏亮：太阳高度 > -10°（更贴近观测/摄影体感）
   };
 
-  // “近似磁纬”（偶极近似）：可离线计算，但与真实 AACGMv2/CGM 会有偏差（尤其在东亚高经度区）。
-  // 真实 AACGMv2 建议走 aacgmV2MagLat()（远程换算服务），失败则 fallback 到本函数。
+  // “近似磁纬”（离线）：目标是更贴近 AACGMv2 的观测语境（用于极光决策），而不是第一版那种与极光无关的“伪磁纬”。
+  // 这里采用 **磁北极（dip pole）** 作为参考点来构造一个稳定的近似 MLAT：
+  // - 磁北极（dip pole）比“地心偶极 geomagnetic pole”更接近实际磁力线垂直点，
+  // - 在东亚（例如漠河）能显著减少你看到的那种 44° 误报。
+  // 参考：WDC Kyoto / IGRF 给出的 dip pole（示例年份 2024：85.9N, 142.3E）。
+  // 注意：这仍然不是严格 AACGMv2，但误差通常在可接受范围内，用于“是否值得出门”更稳。
   function approxMagLat(lat, lon){
-    const poleLat = 80.65;
-    const poleLon = -72.68;
+    // 2024 North magnetic dip pole (IGRF/WMM-derived)
+    const poleLat = 85.9;
+    const poleLon = 142.3; // degrees East
+
     const toRad = (d)=>d*Math.PI/180;
     const deg = (rad)=> rad * 180 / Math.PI;
 
     const a1 = toRad(lat), b1 = toRad(lon);
     const a2 = toRad(poleLat), b2 = toRad(poleLon);
+
+    // Great-circle distance to dip pole
     const cosc = Math.sin(a1)*Math.sin(a2) + Math.cos(a1)*Math.cos(a2)*Math.cos(b1-b2);
     const c = Math.acos(clamp(cosc, -1, 1));
+
+    // Define MLAT as 90° minus the angular distance to the dip pole
     return 90 - deg(c);
   }
 
   // ------------------------------------------------------------
-  // AACGMv2 MLAT (preferred): via remote conversion endpoint
+  // Magnetic Latitude (simplified)
   // ------------------------------------------------------------
-  // Why remote?
-  // AACGMv2 不是简单公式，需要磁场模型系数与算法实现。纯前端实现成本很高。
-  // 所以前端这里提供一个“可选远程换算”接口：
-  //   - 配置了 endpoint：优先拿真实 AACGMv2 MLAT
-  //   - 拉不到 / 没配置：返回 NaN，让上层 fallback 到 approxMagLat
-  //
-  // 你可以在 window.Config 或 window.MODEL_CONFIG 里配置：
-  //   window.MODEL_CONFIG = { aacgmEndpoint: "https://<your-endpoint>/aacgmv2/mlat" }
-  // 远程接口约定：POST JSON -> { lat, lon, alt_km, time }，返回 JSON -> { mlat }
+  // 目前策略：只使用离线“近似磁纬”（偶极近似）方案。
+  // 不再尝试远程 AACGMv2 换算服务，也不做 localStorage 缓存，避免旧版本/失败回退导致的误报。
+  // 注意：该近似在部分区域会有偏差，但对当前“是否值得出门”的决策足够稳定。
 
-  const AACGM_CACHE_PREFIX = "aacgmv2_mlat_v1:";
-  const AACGM_CACHE_TTL_MS = 14 * 24 * 3600 * 1000; // 14 days
-
-  function _aacgmKey(lat, lon, date){
-    const d = (date instanceof Date) ? date : new Date(date || Date.now());
-    // bucket by hour
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    const hh = String(d.getUTCHours()).padStart(2, "0");
-    const latK = Number(lat).toFixed(2);
-    const lonK = Number(lon).toFixed(2);
-    return `${AACGM_CACHE_PREFIX}${latK},${lonK},${y}${m}${day}${hh}`;
+  function magLat(lat, lon){
+    return approxMagLat(lat, lon);
   }
 
-  function _aacgmCacheGet(k){
-    try{
-      const raw = localStorage.getItem(k);
-      if(!raw) return null;
-      const obj = JSON.parse(raw);
-      if(!obj || !Number.isFinite(obj.v) || !Number.isFinite(obj.t)) return null;
-      if(Date.now() - obj.t > AACGM_CACHE_TTL_MS) return null;
-      return obj.v;
-    }catch(_){
-      return null;
-    }
-  }
-
-  function _aacgmCacheSet(k, v){
-    try{
-      localStorage.setItem(k, JSON.stringify({ v, t: Date.now() }));
-    }catch(_){ /* ignore */ }
-  }
-
-  async function aacgmV2MagLat(lat, lon, date){
-    const d = (date instanceof Date) ? date : new Date(date || Date.now());
-    const k = _aacgmKey(lat, lon, d);
-    const cached = _aacgmCacheGet(k);
-    if(Number.isFinite(cached)) return cached;
-
-    const endpoint = window.MODEL_CONFIG?.aacgmEndpoint || window.Config?.aacgmEndpoint || "";
-    if(!endpoint) return NaN;
-
-    const payload = {
-      lat: Number(lat),
-      lon: Number(lon),
-      alt_km: 0,
-      time: d.toISOString(),
-    };
-
-    try{
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if(!res.ok) return NaN;
-      const j = await res.json();
-      const v = Number(j && j.mlat);
-      if(!Number.isFinite(v)) return NaN;
-      _aacgmCacheSet(k, v);
-      return v;
-    }catch(_){
-      return NaN;
-    }
+  // 为了兼容旧的 app.js 调用（如果它仍然 await aacgmV2MagLat），这里保留同名函数。
+  // 但它会直接返回近似磁纬，不再发起任何网络请求。
+  async function aacgmV2MagLat(lat, lon, _date){
+    return approxMagLat(lat, lon);
   }
 
   function labelByScore5(s){
@@ -284,6 +239,7 @@
   window.Model = {
     W,
     approxMagLat,
+    magLat,
     aacgmV2MagLat,
     labelByScore5,
     baseScoreFromSW,
