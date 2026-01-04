@@ -130,11 +130,12 @@
   }
 
   function applyLang(lang){
-    // 1) Toggle header CN/EN buttons
-    const lt = $("langToggle");
-    if(lt){
-      const opts = Array.from(lt.querySelectorAll(".langOpt"));
-      opts.forEach(b => b.classList.toggle("active", (b.dataset.lang || "cn") === lang));
+    // 1) Header language toggle (single button shows the OTHER language)
+    const btnLang = $("btnLang");
+    if(btnLang){
+      // show target language (tap to switch)
+      btnLang.textContent = (lang === "en") ? "CN" : "EN";
+      btnLang.setAttribute("data-lang", lang);
     }
 
     // 2) About modal title + body switching (CN experience must remain unchanged by default)
@@ -167,6 +168,19 @@
       el.textContent = (lang === "en") ? en : cn;
     };
 
+    const setBilingualHTML = (el, enHTML) => {
+      if(!el) return;
+      if(!el.getAttribute("data-cn")){
+        el.setAttribute("data-cn", el.innerHTML || "");
+      }
+      if(enHTML && !el.getAttribute("data-en")){
+        el.setAttribute("data-en", enHTML);
+      }
+      const cn = el.getAttribute("data-cn") || (el.innerHTML || "");
+      const en = el.getAttribute("data-en") || cn;
+      el.innerHTML = (lang === "en") ? en : cn;
+    };
+
     // Buttons (be tolerant to id variations)
     setBilingualText($("btnGeo"), "📍 Get Location");
     setBilingualText($("btnRun"), "✍️ Run Forecast");
@@ -177,26 +191,36 @@
     const tabs = Array.from(document.querySelectorAll(".tab"));
     tabs.forEach(t => {
       const id = t.dataset.tab || "";
-      if(id === "t1") setBilingualText(t, "1-Hour Precision");
-      else if(id === "t3") setBilingualText(t, "3-Hour Window");
-      else if(id === "t72") setBilingualText(t, "72-Hour Outlook");
+      if(id === "t1") setBilingualText(t, "1H");
+      else if(id === "t3") setBilingualText(t, "3H");
+      else if(id === "t72") setBilingualText(t, "72H");
     });
+
+    // Status + geo hint (EN only)
+    setBilingualText($("statusText"), "Ready.");
+    setBilingualText(
+      $("geoHintSummary"),
+      "We recommend using \"Get Location\". You can also enter coordinates manually."
+    );
+    setBilingualHTML(
+      $("geoHintBody"),
+      "Not sure about coordinates? Try: <b>Google Maps</b> (drop a pin and read lat/lon), or Tencent Maps picker: https://lbs.qq.com/getPoint/."
+    );
 
     // NOTE: Dynamic outputs (conclusion text, reasons, etc.) are handled by app.js based on UI.getLang().
   }
 
   function initLangToggle(){
-    const lt = $("langToggle");
-    if(!lt) return;
+    const btn = $("btnLang");
+    if(!btn) return;
 
     // init from cache
     applyLang(getLang());
 
-    lt.addEventListener("click", (e) => {
-      const t = e.target;
-      if(!t || !t.classList || !t.classList.contains("langOpt")) return;
-      const lang = t.dataset.lang || "cn";
-      setLang(lang);
+    btn.addEventListener("click", () => {
+      const cur = getLang();
+      const next = (cur === "en") ? "cn" : "en";
+      setLang(next);
     });
   }
 

@@ -95,40 +95,25 @@ body{
   flex: 0 0 auto;
 }
 
-.langToggle{
-  display:inline-flex;
-  align-items:center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.03);
-  user-select: none;
-}
-
-.langToggle .langOpt{
+/* Single language toggle pill (shows EN or CN) */
+.langSingle{
   appearance:none;
-  border:0;
-  background: transparent;
-  color: rgba(255,255,255,.62);
-  font-size: 12px;
-  letter-spacing: .3px;
-  padding: 2px 4px;
-  cursor: pointer;
-}
-
-.langToggle .langOpt:hover{
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
   color: rgba(255,255,255,.78);
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: .2px;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
 }
 
-.langToggle .langOpt.active{
+.langSingle:hover{
   color: rgba(255,255,255,.92);
-  font-weight: 700;
-}
-
-.langToggle .langSep{
-  color: rgba(255,255,255,.35);
-  font-size: 12px;
+  border-color: rgba(255,255,255,.16);
+  background: rgba(255,255,255,.05);
 }
 
 .brand{
@@ -707,6 +692,12 @@ canvas{width:100% !important; height:100% !important}
 
   /* 3小时三卡：移动端时间窗也要清晰 */
   #t3 .threeTri .dayLabel{ font-size: 14px; }
+
+  /* Language toggle stays top-right and compact on mobile */
+  .langSingle{
+    padding: 4px 8px;
+    font-size: 10px;
+  }
 }
 /* ===============================
    72小时：概览条（A）
@@ -1008,13 +999,7 @@ canvas{width:100% !important; height:100% !important}
   .subtitle{line-height:1.4}
   .brandRow{align-items:center}
   
-  /* Language toggle stays top-right and compact on mobile */
-  .langToggle{
-    padding: 5px 9px;
-  }
-  .langToggle .langOpt{
-    font-size: 11px;
-  }
+  
   .threeSlots{ gap: 12px; }
   .threeSlots .slot{ padding: 10px 12px; }
 
