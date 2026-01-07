@@ -130,64 +130,26 @@ body{
   opacity: .85;
 }
 
-/* Single language toggle pill (shows EN or CN) */
-.langSingle{
-  appearance:none;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  color: rgba(255,255,255,.78);
-  border-radius: 999px;
-  padding: 5px 9px;
-  font-size: 11px;
-  letter-spacing: .2px;
-  cursor: pointer;
-  user-select: none;
-  line-height: 1;
-}
-
-.langSingle:hover{
-  color: rgba(255,255,255,.92);
-  border-color: rgba(255,255,255,.16);
-  background: rgba(255,255,255,.05);
-}
-
-/* CN|EN segmented toggle */
-.langToggle{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  border-radius: 999px;
-  padding: 5px 9px;
-  user-select: none;
-  line-height: 1;
-}
-
-.langToggle .langOpt{
+/* Trans toggle button */
+.btnTrans{
   appearance: none;
-  border: 0;
-  background: transparent;
-  color: rgba(255,255,255,.60);
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.85);
+  border-radius: 999px;
+  padding: 6px 10px;
   font-size: 11px;
-  letter-spacing: .2px;
+  letter-spacing: .3px;
   cursor: pointer;
-  padding: 0;
+  user-select: none;
+  height: 32px;
   line-height: 1;
 }
 
-.langToggle .langOpt:hover{
-  color: rgba(255,255,255,.92);
-}
-
-.langToggle .langOpt.active{
-  color: rgba(255,255,255,.92);
-}
-
-.langToggle .langSep{
-  color: rgba(255,255,255,.30);
-  font-size: 11px;
-  line-height: 1;
+.btnTrans:hover{
+  color: rgba(255,255,255,.95);
+  border-color: rgba(255,255,255,.22);
+  background: rgba(255,255,255,.10);
 }
 
 .brand{
@@ -922,14 +884,11 @@ canvas{width:100% !important; height:100% !important}
   /* 3小时三卡：移动端时间窗也要清晰 */
   #t3 .threeTri .dayLabel{ font-size: 14px; }
 
-  /* Language toggle stays top-right and compact on mobile */
-  .langSingle{
+  .btnTrans{
     padding: 4px 8px;
     font-size: 10px;
+    height: 28px;
   }
-  .langToggle{ padding: 4px 8px; }
-  .langToggle .langOpt{ font-size: 10px; }
-  .langToggle .langSep{ font-size: 10px; }
 
   /* Mobile: language button on its own row (index.html places .headRight below .brandRow) */
   .headRight{

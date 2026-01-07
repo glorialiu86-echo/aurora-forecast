@@ -119,138 +119,6 @@
     return 1 - (1 - f) * ratio;
   }
 
-  // ---------- language (CN default; EN only when toggled) ----------
-  const LANG_KEY = "ac_lang";
-
-  function getLang(){
-    try{
-      const v = localStorage.getItem(LANG_KEY);
-      return (v === "en") ? "en" : "cn";
-    }catch(e){
-      return "cn";
-    }
-  }
-
-  function setLang(lang){
-    const v = (lang === "en") ? "en" : "cn";
-    try{ localStorage.setItem(LANG_KEY, v); }catch(e){}
-    applyLang(v);
-  }
-
-  function applyLang(lang){
-    // 1) Header language toggle (CN|EN)
-    const lt = $("langToggle");
-    if(lt){
-      const opts = Array.from(lt.querySelectorAll(".langOpt"));
-      opts.forEach(b => b.classList.toggle("active", (b.dataset.lang || "cn") === lang));
-    }
-
-    // 2) About modal title + body switching (CN experience must remain unchanged by default)
-    const aboutTitle = $("aboutTitle");
-    if(aboutTitle){
-      const cn = aboutTitle.getAttribute("data-cn") || aboutTitle.textContent || "";
-      const en = aboutTitle.getAttribute("data-en") || cn;
-      aboutTitle.textContent = (lang === "en") ? en : cn;
-    }
-
-    const cnBody = $("aboutBodyCN");
-    const enBody = $("aboutBodyEN");
-    if(cnBody && enBody){
-      cnBody.classList.toggle("hidden", lang === "en");
-      enBody.classList.toggle("hidden", lang !== "en");
-    }
-
-    // 3) Static UI texts: buttons / tabs (CN stays exactly as original; EN swaps copy)
-    const setBilingualText = (el, enText) => {
-      if(!el) return;
-      // capture original CN on first run
-      if(!el.getAttribute("data-cn")){
-        el.setAttribute("data-cn", el.textContent || "");
-      }
-      if(enText && !el.getAttribute("data-en")){
-        el.setAttribute("data-en", enText);
-      }
-      const cn = el.getAttribute("data-cn") || (el.textContent || "");
-      const en = el.getAttribute("data-en") || cn;
-      el.textContent = (lang === "en") ? en : cn;
-    };
-
-    const setBilingualHTML = (el, enHTML) => {
-      if(!el) return;
-      if(!el.getAttribute("data-cn")){
-        el.setAttribute("data-cn", el.innerHTML || "");
-      }
-      if(enHTML && !el.getAttribute("data-en")){
-        el.setAttribute("data-en", enHTML);
-      }
-      const cn = el.getAttribute("data-cn") || (el.innerHTML || "");
-      const en = el.getAttribute("data-en") || cn;
-      el.innerHTML = (lang === "en") ? en : cn;
-    };
-
-    // Buttons (be tolerant to id variations)
-    setBilingualText($("btnGeo"), "📍 Get Location");
-    setBilingualText($("btnRun"), "✍️ Run Forecast");
-    setBilingualText($("btnPredict"), "✍️ Run Forecast");
-    setBilingualText($("btnAbout"), "📖 User Guide");
-
-    // Tabs
-    const tabs = Array.from(document.querySelectorAll(".tab"));
-    tabs.forEach(t => {
-      const id = t.dataset.tab || "";
-      if(id === "t1") setBilingualText(t, "1H Precision");
-      else if(id === "t3") setBilingualText(t, "3H Window");
-      else if(id === "t72") setBilingualText(t, "72H Outlook");
-    });
-
-    // Status + geo hint (EN only)
-    setBilingualText($("statusText"), "Ready.");
-    setBilingualText(
-      $("geoHintSummary"),
-      "We recommend using \"Get Location\". You can also enter coordinates manually."
-    );
-    setBilingualHTML(
-      $("geoHintBody"),
-      "Not sure about coordinates? Try: <b>Google Maps</b> (drop a pin and read lat/lon), or Tencent Maps picker: https://lbs.qq.com/getPoint/."
-    );
-
-    // 4) Static blocks added in index.html: unit pill + EN explain cards (CN must remain unchanged)
-    setBilingualText($("unit10m"), "Unit: 10 min");
-
-    const toggleExplainPair = (enId) => {
-      const enCard = $(enId);
-      if(!enCard) return;
-      // CN card is the immediate previous sibling (we inserted EN card right after CN card)
-      const cnCard = enCard.previousElementSibling;
-      if(cnCard && cnCard.classList && cnCard.classList.contains("explain")){
-        cnCard.classList.toggle("hidden", lang === "en");
-      }
-      enCard.classList.toggle("hidden", lang !== "en");
-    };
-
-    toggleExplainPair("oneExplainEN");
-    toggleExplainPair("threeExplainEN");
-    toggleExplainPair("outlookExplainEN");
-
-    // NOTE: Dynamic outputs (conclusion text, reasons, etc.) are handled by app.js based on UI.getLang().
-  }
-
-  function initLangToggle(){
-    const lt = $("langToggle");
-    if(!lt) return;
-
-    // init from cache
-    applyLang(getLang());
-
-    const opts = Array.from(lt.querySelectorAll(".langOpt"));
-    opts.forEach(b => {
-      b.addEventListener("click", () => {
-        const v = (b.dataset.lang === "en") ? "en" : "cn";
-        setLang(v);
-      });
-    });
-  }
-
   // ---------- UI bits: tabs / modal / alert ----------
   function initTabs(){
     const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -275,8 +143,6 @@
     if(!modal || !btn) return;
 
     const open = () => {
-      // ensure About title/body matches current language
-      applyLang(getLang());
       modal.classList.remove("hidden");
       modal.setAttribute("aria-hidden", "false");
     };
@@ -473,11 +339,6 @@
     initTabs,
     initAbout,
     showAlertModal,
-    // language
-    getLang,
-    setLang,
-    applyLang,
-    initLangToggle,
   };
 
   // Data fetchers kept as window.Data.* for app.js

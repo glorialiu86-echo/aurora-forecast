@@ -176,7 +176,6 @@ const badgeHTML = (text, cls) => {
 
 const initTabs = () => { if (uiReady() && typeof window.UI.initTabs === "function") { try{ window.UI.initTabs(); }catch(_){ } } };
 const initAbout = () => { if (uiReady() && typeof window.UI.initAbout === "function") { try{ window.UI.initAbout(); }catch(_){ } } };
-const initLangToggle = () => { if (uiReady() && typeof window.UI.initLangToggle === "function") { try{ window.UI.initLangToggle(); }catch(_){ } } };
 
    const showAlertModal = (html) => { if (uiReady() && typeof window.UI.showAlertModal === "function") window.UI.showAlertModal(html); };
 
@@ -338,119 +337,20 @@ function cColor(c){
   }
 }
 
-// ===============================
-// Language: conclusion translation (EN only; CN remains unchanged)
-// ===============================
-function getLangSafe(){
-  try{
-    const g = window.UI?.getLang;
-    if(typeof g === "function"){
-      const v = g();
-      return (v === "en") ? "en" : "cn";
-    }
-  }catch(_){ /* ignore */ }
-  return "cn";
-}
-
-function translateConclusionTextIfEN(cnPhrase){
-  const cn = String(cnPhrase || "").trim() || "不可观测";
-  if(getLangSafe() !== "en") return cn;
-
-  const map = {
-    "强烈推荐": "Highly Recommended",
-    "值得出门": "Worth Going Out",
-    "可蹲守": "Worth Waiting",
-    "低概率": "Low Probability",
-    "不可观测": "Not Observable",
-  };
-
-  return map[cn] || cn || "Not Observable";
-}
-
-// ===============================
-// Language: dynamic text translation (EN only; CN remains unchanged)
-// ===============================
-function _tIfEN(cnText, enText){
-  return (getLangSafe() === "en") ? (enText || cnText) : cnText;
-}
-
-function translateReasonIfEN(cnText){
-  const cnRaw = String(cnText || "");
-  const cn = cnRaw.trim();
-  if(getLangSafe() !== "en") return cn;
-
-  // Exact/near-exact mappings first (stable, no surprises)
-  const map = {
-    // energy / coupling
-    "能量注入弱，难以形成有效极光": "Weak energy coupling. Effective aurora is unlikely.",
-    "能量注入偏弱，难以形成有效极光": "Weak energy coupling. Effective aurora is unlikely.",
-    "能量输入偏弱，难以形成有效极光": "Weak energy coupling. Effective aurora is unlikely.",
-    "能量注入弱": "Weak energy coupling.",
-
-    // bright sky (sun/moon merged)
-    "天色偏亮，微弱极光难以分辨": "Bright sky. Faint aurora is hard to discern.",
-    "天空偏亮，微弱极光难以分辨": "Bright sky. Faint aurora is hard to discern.",
-    "天色偏亮": "Bright sky.",
-
-    // clouds
-    "天空被云层遮挡，不利于观测": "Cloud cover blocks the sky.",
-    "天空被云层遮挡": "Cloud cover blocks the sky.",
-    "云层遮挡，不利于观测": "Cloud cover blocks the sky.",
-    "云层遮挡": "Cloud cover blocks the sky.",
-    "云量过高，不利于观测": "Too cloudy for reliable viewing.",
-    "云量过高": "Too cloudy for reliable viewing.",
-
-    // generic / fallback strings sometimes produced by future edits
-    "不可观测": "Not observable.",
-    "—": "—",
-  };
-
-  if(map[cn]) return map[cn];
-
-  // Keyword-based fallbacks (cover future phrasing changes without touching CN path)
-  const s = cn;
-
-  // Clouds
-  if(s.includes("云")){
-    // If wording hints at heavy cloud / blocking
-    if(s.includes("遮挡") || s.includes("过高") || s.includes("很厚") || s.includes("覆盖")){
-      return "Cloud cover blocks the sky.";
-    }
-    return "Cloud conditions are unfavorable.";
-  }
-
-  // Bright sky (sun/moon/twilight)
-  if(s.includes("天色") || s.includes("天空") || s.includes("偏亮") || s.includes("月") || s.includes("太阳") || s.includes("晨") || s.includes("暮")){
-    return "Bright sky. Faint aurora is hard to discern.";
-  }
-
-  // Energy / coupling / geomagnetic drive
-  if(s.includes("能量") || s.includes("注入") || s.includes("输入") || s.includes("耦合") || s.includes("Bz") || s.includes("BT") || s.includes("Bt") || s.includes("南") || s.includes("北")){
-    return "Weak geomagnetic driving. Effective aurora is unlikely.";
-  }
-
-  // Default: keep CN (better than wrong EN)
-  return cn;
-}
-
-function primaryPrefixIfEN(){
-  return (getLangSafe() === "en") ? "Primary factor: " : "主要影响因素：";
-}
-
 function actionNote1h(score5, gate){
   const s = Math.max(1, Math.min(5, Math.round(Number(score5) || 1)));
   // hardBlock also means not worth investing now
-  if(gate && gate.hardBlock) return _tIfEN("当前时段不建议投入。", "Not recommended to invest effort now.");
-  if(s <= 2) return _tIfEN("当前时段不建议投入。", "Not recommended to invest effort now.");
-  if(s === 3) return _tIfEN("可尝试短时观测。", "Try a short watch.");
-  return _tIfEN("值得出门尝试。", "Worth going out to try.");
+  if(gate && gate.hardBlock) return "当前时段不建议投入。";
+  if(s <= 2) return "当前时段不建议投入。";
+  if(s === 3) return "可尝试短时观测。";
+  return "值得出门尝试。";
 }
 
 function actionNote72h(score5){
   const s = Math.max(1, Math.min(5, Math.round(Number(score5) || 1)));
-  if(s <= 2) return _tIfEN("暂不建议为此规划行程。", "Not recommended to plan a trip for this yet.");
-  if(s === 3) return _tIfEN("可提前关注，临近再决定。", "Keep an eye on it; decide closer to the date.");
-  return _tIfEN("值得提前规划行程。", "Worth planning ahead.");
+  if(s <= 2) return "暂不建议为此规划行程。";
+  if(s === 3) return "可提前关注，临近再决定。";
+  return "值得提前规划行程。";
 }
 
 // ===============================
@@ -1215,11 +1115,11 @@ function fillCurrentLocation(){
       if(Number.isFinite(absMlat) && absMlat < MLAT_HARD_STOP){
         showMlatHardStop(mlat);
 
-        safeHTML($("oneHeroLabel"), `<span style="color:${cColor(1)} !important;">${escapeHTML(translateConclusionTextIfEN("不可观测"))}</span>`);
+        safeHTML($("oneHeroLabel"), `<span style="color:${cColor(1)} !important;">${escapeHTML("不可观测")}</span>`);
         safeText($("oneHeroMeta"), actionNote1h(1, { hardBlock:true }));
         safeHTML(
           $("oneBlockers"),
-          `<div class="blockerExplain s1"><div>${escapeHTML(primaryPrefixIfEN() + translateReasonIfEN("磁纬过低，已停止生成"))}</div></div>`
+          `<div class="blockerExplain s1"><div>${escapeHTML("主要影响因素：" + "磁纬过低，已停止生成")}</div></div>`
         );
         safeHTML($("swLine"), SW_PLACEHOLDER_HTML);
         safeText($("swMeta"), "—");
@@ -1231,14 +1131,14 @@ function fillCurrentLocation(){
 
         // For 3-hour burst model: only state (big word) and one-line hint
         safeText($("threeState"), "静默");
-        safeText($("threeBurst"), _tIfEN("磁纬过低，已停止生成", "MLAT too low. Generation stopped."));
+        safeText($("threeBurst"), "磁纬过低，已停止生成");
         safeText($("threeDeliver"), "—");
         safeText($("threeDeliverMeta"), "—");
 
         // 3小时（三卡，与 72h 同模板）
         [0,1,2].forEach(i => {
           safeText($("threeSlot"+i+"Time"), "—");
-          safeText($("threeSlot"+i+"Conclusion"), translateConclusionTextIfEN("不可观测"));
+          safeText($("threeSlot"+i+"Conclusion"), "不可观测");
           safeText($("threeSlot"+i+"Note"), actionNote1h(1, { hardBlock:true }));
           safeText($("threeSlot"+i+"Reason"), "不可观测。");
           const card = $("threeSlot"+i);
@@ -1248,7 +1148,7 @@ function fillCurrentLocation(){
         // 72h（三列日卡）
         [0,1,2].forEach(i => {
           safeText($("day"+i+"Date"), "—");
-          safeText($("day"+i+"Conclusion"), translateConclusionTextIfEN("不可观测"));
+          safeText($("day"+i+"Conclusion"), "不可观测");
           safeText($("day"+i+"Note"), actionNote72h(1));
           safeText($("day"+i+"Basis"), "不可观测。");
           const card = $("day"+i);
@@ -1581,7 +1481,7 @@ function fillCurrentLocation(){
       const heroObj = window.Model.labelByScore5(heroScore);
       // 1小时标题：整句跟随 C 值颜色（用 inline + !important 防止被 CSS 覆盖）
       const heroAllowPlus = (heroScore >= 2 && heroScore <= 4);
-      const heroLabelText = translateConclusionTextIfEN(heroObj.t);
+      const heroLabelText = heroObj.t;
       const heroLabelInner = `<span style="color:${cColor(heroObj.score)} !important;">${escapeHTML(String(heroLabelText))}</span>`;
       safeHTML(
         $("oneHeroLabel"),
@@ -1649,7 +1549,7 @@ function fillCurrentLocation(){
 
           blockerHTML = `
             <div class="blockerExplain s${heroScore}">
-              <div>${escapeHTML(primaryPrefixIfEN() + (translateReasonIfEN(primary) || "—"))}</div>
+              <div>${escapeHTML("主要影响因素：" + (primary || "—"))}</div>
             </div>
           `;
         }
@@ -1817,12 +1717,12 @@ function fillCurrentLocation(){
 
         const timeText = `${fmtHM(s.start)}–${fmtHM(s.end)}`;
         safeText($("threeSlot" + i + "Time"), timeText);
-        safeText($("threeSlot" + i + "Conclusion"), translateConclusionTextIfEN(lab.t));
+        safeText($("threeSlot" + i + "Conclusion"), lab.t);
         safeText($("threeSlot" + i + "Note"), actionNote1h(s.score5, s.gate));
 
         // reason line: show a single primary factor when we have it; otherwise keep it minimal
         const reason = (s.factorText && String(s.factorText).trim())
-          ? (primaryPrefixIfEN() + translateReasonIfEN(String(s.factorText)))
+          ? ("主要影响因素：" + String(s.factorText))
           : "";
         safeText($("threeSlot" + i + "Reason"), reason);
 
@@ -1915,7 +1815,7 @@ function fillCurrentLocation(){
 
         // 写入到三列卡片
         safeText($("day"+i+"Date"), key);
-        safeText($("day"+i+"Conclusion"), translateConclusionTextIfEN(lab.t));
+        safeText($("day"+i+"Conclusion"), lab.t);
         safeText($("day"+i+"Note"), actionNote72h(score5));
         safeHTML($("day"+i+"Basis"), basisHTML);
 
@@ -1932,7 +1832,6 @@ function fillCurrentLocation(){
   // ---------- bootstrap ----------
   function bootstrap(){
     initTabs();
-    initLangToggle();
     initAbout();
 
     if($("lat") && !$("lat").value) $("lat").value = "53.47";
