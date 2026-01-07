@@ -1,0 +1,39 @@
+/* Staging watermark (UI only) */
+body.stagingMode .wrap{
+  padding-top: 28px;
+}
+
+body.stagingMode .stagingBar{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: #ff2d2d;
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-align: center;
+  line-height: 28px;
+  z-index: 9999;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+
+body.stagingMode .stagingCorner{
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  background: #ffd400;
+  color: #111111;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 2px solid #111111;
+  border-radius: 6px;
+  z-index: 10000;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  pointer-events: none;
+}

@@ -17,6 +17,32 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
+  <script>
+    (function(){
+      if(!location.hostname.startsWith("staging.")) return;
+      document.body.classList.add("stagingMode");
+
+      var link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "./staging.css?v=0319";
+      document.head.appendChild(link);
+
+      var bar = document.createElement("div");
+      bar.className = "stagingBar";
+      bar.setAttribute("role", "note");
+      bar.setAttribute("aria-label", "TEST / STAGING");
+      bar.textContent = "TEST / STAGING";
+
+      var corner = document.createElement("div");
+      corner.className = "stagingCorner";
+      corner.setAttribute("role", "note");
+      corner.setAttribute("aria-label", "TEST / STAGING");
+      corner.textContent = "TEST / STAGING";
+
+      document.body.prepend(corner);
+      document.body.prepend(bar);
+    })();
+  </script>
   <div class="wrap">
     <header class="head">
       <div class="brandRow">
