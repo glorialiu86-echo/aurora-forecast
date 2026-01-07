@@ -1,57 +1,111 @@
 # Project Agent Rules (Aurora Capture)
 
 This project is actively maintained by a human owner.
-The agent must follow these rules strictly.
+All agents (including Codex) must follow these rules strictly.
 
-## General Principles
-- Do not modify any files without explicit user confirmation
-- Prefer minimal, controlled changes over large refactors
-- This is not a refactoring task unless explicitly stated
+---
 
-## Before Coding
-- Always summarize your understanding of the task
-- List all files you plan to modify or create
-- Wait for user confirmation before writing any code
+## 0. Absolute Priority (Hard Rules)
+- ❌ Do NOT modify `main` branch unless the user explicitly says so
+- ❌ Do NOT `commit` or `push` unless the user explicitly confirms
+- ❌ Do NOT modify files outside the approved list
+- ❌ Do NOT perform refactors unless explicitly requested
 
-## Code Modification Rules
-- Use full function or full block replacement
-- Do NOT insert scattered lines into existing code
-- Do NOT perform "incidental improvements"
-- Do NOT rename variables, functions, or files unless asked
+Violation of any hard rule = immediate rejection.
 
-## Scope Control
+---
+
+## 1. Branch & Deployment Rules (Very Important)
+- `main` branch = production (www)
+- `staging` branch = testing / preview
+- **All changes must land in `staging` first**
+- `staging` auto-deploys to aurora-capture-staging (GitHub Pages)
+- `staging` must NOT introduce business-logic divergence from `main`
+  - Only UI / testing / instrumentation differences are allowed
+
+---
+
+## 2. Mandatory REVIEW.md (Write Every Time)
+For **every non-trivial change** (any code, logic, infra, or behavior change),
+the agent **MUST generate a `REVIEW.md` file** in the repo root.
+
+### 2.1 REVIEW.md is required BEFORE commit / push
+- Changes are **NOT considered reviewable** without `REVIEW.md`
+- The user will review `REVIEW.md` first, not raw diffs
+- No `REVIEW.md` → no approval
+
+### 2.2 REVIEW.md Fixed Template (Do NOT alter)
+```md
+# Review Summary
+
+## What changed
+- Bullet list of concrete changes (3–7 lines max)
+
+## Files touched
+- Modified:
+- Added:
+- Deleted:
+
+## Behavior impact
+- What user-visible behavior changed
+- What explicitly did NOT change
+
+## Risk assessment
+- Possible failure modes
+- Performance / cost / quota impact
+- Deployment or environment risks
+
+## How to test
+1. Step-by-step manual test instructions
+2. Expected results
+
+## Rollback plan
+- How to revert safely (e.g. revert commit / switch branch)
+
+## Open questions / follow-ups
+- Anything uncertain, deferred, or intentionally skipped
+```
+
+---
+
+## 3. Before Coding (Mandatory)
+Before writing **any code**, the agent must:
+1. Summarize understanding of the task
+2. List **exact files** to be modified or created
+3. Explicitly state whether business logic is affected
+4. Wait for explicit user confirmation
+
+---
+
+## 4. Code Modification Rules
+- Use **full function** or **full block replacement**
+- ❌ Do NOT insert scattered lines
+- ❌ Do NOT do “cleanup”, “formatting”, or “small improvements” unless asked
+- ❌ Do NOT rename files / variables / functions unless requested
+
+---
+
+## 5. Scope Control
 - Only modify files explicitly approved by the user
-- If you think a better solution exists, explain it first and wait
+- If a better solution exists:
+  - Explain it
+  - Wait for user decision
+  - Do NOT auto-implement
 
-## Language
-- User instructions may be written in Chinese
-- Keep code, APIs, and technical terms in English
+---
 
-# AGENTS.md — Aurora Capture 项目协作约定
+## 6. Language & Style
+- User instructions may be in Chinese
+- Code, APIs, comments, and identifiers must be in English
+- Markdown documentation must be clear, concise, and factual
 
-## 1. 分支与部署规则（非常重要）
-- main 分支 = 正式生产环境（www）
-- staging 分支 = 测试环境
-- 所有功能修改 **必须先提交到 staging**
-- 未经用户明确确认，不得向 main 提交或合并
-- 默认情况下，agent 不得自行执行 git push / git commit，除非用户明确要求或确认
+---
 
-## 2. Staging 行为约束
-- staging 的改动用于测试与验收
-- staging 分支的 push 会自动部署到 aurora-capture-staging（GitHub Pages）
-- staging 页面只允许 UI 标识类差异（如水印），不得引入业务逻辑差异
+## 7. Workflow Summary (TL;DR)
+1. Explain plan → wait
+2. Implement in `staging`
+3. Generate `REVIEW.md`
+4. User reviews `REVIEW.md`
+5. Only then: commit / push (if approved)
 
-## 3. 禁止事项（硬约束）
-- ❌ 不得修改或新增 main 分支的 CNAME
-- ❌ 不得在 aurora-capture-staging 仓库中直接修改任何文件
-- ❌ 不得自作主张重构、删除、重排未被点名的模块
-
-## 4. 修改范围控制
-- 每次修改前必须先说明：
-  - 将修改哪些文件
-  - 是否涉及业务逻辑
-- 默认采用「整段替换 / 明确 diff」方式，避免零散改动
-
-## 5. 工作方式
-- 所有改动默认先给 diff / 方案
-- 得到用户“通过 / OK / 可以改”后再提交
+Anything outside this flow is invalid.
