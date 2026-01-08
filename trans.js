@@ -157,10 +157,12 @@
     try{ localStorage.setItem(CACHE_KEY, JSON.stringify(map)); }catch(_){ /* ignore */ }
   };
 
-  const translateBatch = async (texts, target) => {
+  const translateBatch = async (texts, target, sourceLang = "zh") => {
     const items = Array.isArray(texts) ? texts : [];
     if(!items.length) return [];
-    if(String(target || "").toLowerCase().startsWith("zh")){
+    const src = String(sourceLang || "zh").trim().toLowerCase();
+    const tgt = String(target || "").trim().toLowerCase();
+    if(tgt.startsWith("zh") && src.startsWith("zh")){
       return items.slice();
     }
     const cfg = getConfig();
@@ -171,7 +173,7 @@
       const r = await fetch(cfg.translateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texts: items, target, source: "zh" }),
+        body: JSON.stringify({ texts: items, target, source: sourceLang }),
       });
       if(!r.ok) throw new Error("translate_failed");
       const j = await r.json();
@@ -207,6 +209,10 @@
     return null;
   };
 
+  const isStatusElement = (el) => {
+    return !!(el && el.hasAttribute && el.hasAttribute("data-status-key"));
+  };
+
   const applyGeoHintRule = (target, state) => {
     const el = document.getElementById(GEO_HINT_ID);
     if(!el) return;
@@ -237,8 +243,10 @@
       showNoServiceHint();
     }
 
+    const preferred = getPreferredLang();
+    const preferredIsZh = preferred.startsWith("zh");
     const cache = getCacheMap();
-    const pending = [];
+    const pendingBySource = { zh: [], en: [] };
 
     for(const el of elements){
       if(el.id === GEO_HINT_ID) continue;
@@ -246,37 +254,48 @@
       if(!source){
         continue;
       }
-      const fixed = resolveFixedText(source, target);
-      if(fixed != null){
-        el.textContent = fixed;
+      const statusEl = isStatusElement(el);
+      if(statusEl && preferredIsZh){
+        el.textContent = source;
         continue;
+      }
+      if(!statusEl){
+        const fixed = resolveFixedText(source, target);
+        if(fixed != null){
+          el.textContent = fixed;
+          continue;
+        }
       }
       if(!canTranslate){
         el.textContent = source;
         continue;
       }
-      const key = `${target}::${source}`;
+      const sourceLang = statusEl ? "en" : "zh";
+      const key = `${target}::${sourceLang}::${source}`;
       if(cache[key]){
         el.textContent = cache[key];
         continue;
       }
-      pending.push({ el, source, key });
+      pendingBySource[sourceLang].push({ el, source, key });
     }
 
-    if(!pending.length){
+    const sourceBuckets = Object.keys(pendingBySource).filter((k) => pendingBySource[k].length);
+    if(!sourceBuckets.length){
       applyGeoHintRule(target, currentState);
       return;
     }
 
-    const translatedList = await translateBatch(pending.map((p) => p.source), target);
-    if(myJob !== jobId || currentState !== "on") return;
-
-    for(let i = 0; i < pending.length; i++){
-      const item = pending[i];
-      const translated = translatedList[i] || "";
-      if(translated){
-        cache[item.key] = translated;
-        item.el.textContent = translated;
+    for(const sourceLang of sourceBuckets){
+      const bucket = pendingBySource[sourceLang];
+      const translatedList = await translateBatch(bucket.map((p) => p.source), target, sourceLang);
+      if(myJob !== jobId || currentState !== "on") return;
+      for(let i = 0; i < bucket.length; i++){
+        const item = bucket[i];
+        const translated = translatedList[i] || "";
+        if(translated){
+          cache[item.key] = translated;
+          item.el.textContent = translated;
+        }
       }
     }
     setCacheMap(cache);

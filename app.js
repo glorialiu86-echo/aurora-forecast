@@ -193,6 +193,41 @@ const escapeHTML = (s) => {
     .replaceAll("'", "&#39;");
 };
 
+const STATUS_LABELS = {
+  SILENT: { zh: "静默", en: "stand in silence" },
+  IN_OUTBURST: { zh: "爆发进行中", en: "in outburst" },
+  OUTBURST_BUILDING: { zh: "爆发概率上升", en: "outburst building" },
+  OUTBURST_FADING: { zh: "爆发后衰落期", en: "fading after outburst" },
+  WORTH_GOING_OUT: { zh: "值得出门", en: "worth going out" },
+  WAIT_AND_OBSERVE: { zh: "可蹲守", en: "wait-and-observe" },
+  LOW_PROBABILITY: { zh: "低概率", en: "low probability" },
+  UNOBSERVABLE: { zh: "不可观测", en: "unobservable" },
+  STRONGLY_RECOMMENDED: { zh: "强烈推荐", en: "strongly recommended" },
+};
+
+const getUiLang = () => {
+  const list = Array.isArray(navigator.languages) ? navigator.languages : [];
+  const raw = list.length ? list[0] : (navigator.language || "en");
+  return String(raw || "").trim().toLowerCase().replace(/_/g, "-");
+};
+
+const isZhLang = () => getUiLang().startsWith("zh");
+
+const statusTextByKey = (key) => {
+  if(!key) return "";
+  const item = STATUS_LABELS[key];
+  if(!item) return "";
+  return isZhLang() ? item.zh : item.en;
+};
+
+const statusSpanHTML = (key, extraAttrs = "") => {
+  const text = statusTextByKey(key);
+  const textEsc = escapeHTML(text || "");
+  const keyEsc = escapeHTML(String(key || ""));
+  const attrs = extraAttrs ? " " + String(extraAttrs).trim() : "";
+  return `<span data-status-key="${keyEsc}" data-i18n="${textEsc}"${attrs}>${textEsc}</span>`;
+};
+
 const renderChart = (labels, vals, cols) => {
   try{
     if(uiReady() && typeof window.UI.renderChart === "function") window.UI.renderChart(labels, vals, cols);
@@ -1176,10 +1211,8 @@ function fillCurrentLocation(){
       if(Number.isFinite(absMlat) && absMlat < MLAT_HARD_STOP){
         showMlatHardStop(mlat);
 
-        safeHTML(
-          $("oneHeroLabel"),
-          `<span style="color:${cColor(1)} !important;" data-i18n="不可观测">不可观测</span>`
-        );
+        const hardLabelHTML = statusSpanHTML("UNOBSERVABLE", `style="color:${cColor(1)} !important;"`);
+        safeHTML($("oneHeroLabel"), hardLabelHTML);
         const heroMetaText = actionNote1h(1, { hardBlock:true });
         const heroMetaEsc = escapeHTML(String(heroMetaText));
         safeHTML($("oneHeroMeta"), `<span data-i18n="${heroMetaEsc}">${heroMetaEsc}</span>`);
@@ -1199,7 +1232,7 @@ function fillCurrentLocation(){
         renderChart(labels, vals, cols);
 
         // For 3-hour burst model: only state (big word) and one-line hint
-        safeHTML($("threeState"), `<span data-i18n="静默">静默</span>`);
+        safeHTML($("threeState"), statusSpanHTML("SILENT"));
         safeHTML($("threeBurst"), `<span data-i18n="磁纬过低，已停止生成">磁纬过低，已停止生成</span>`);
         safeText($("threeDeliver"), "—");
         safeText($("threeDeliverMeta"), "—");
@@ -1207,9 +1240,9 @@ function fillCurrentLocation(){
         // 3小时（三卡，与 72h 同模板）
         [0,1,2].forEach(i => {
           safeText($("threeSlot"+i+"Time"), "—");
-          safeHTML($("threeSlot"+i+"Conclusion"), `<span data-i18n="不可观测">不可观测</span>`);
+          safeHTML($("threeSlot"+i+"Conclusion"), statusSpanHTML("UNOBSERVABLE"));
           safeText($("threeSlot"+i+"Note"), actionNote1h(1, { hardBlock:true }));
-          safeHTML($("threeSlot"+i+"Reason"), `<span data-i18n="不可观测">不可观测</span>`);
+          safeHTML($("threeSlot"+i+"Reason"), statusSpanHTML("UNOBSERVABLE"));
           const card = $("threeSlot"+i);
           if(card) card.className = "dayCard c1";
         });
@@ -1217,9 +1250,9 @@ function fillCurrentLocation(){
         // 72h（三列日卡）
         [0,1,2].forEach(i => {
           safeText($("day"+i+"Date"), "—");
-          safeHTML($("day"+i+"Conclusion"), `<span data-i18n="不可观测">不可观测</span>`);
+          safeHTML($("day"+i+"Conclusion"), statusSpanHTML("UNOBSERVABLE"));
           safeText($("day"+i+"Note"), actionNote72h(1));
-          safeHTML($("day"+i+"Basis"), `<span data-i18n="不可观测">不可观测</span>`);
+          safeHTML($("day"+i+"Basis"), statusSpanHTML("UNOBSERVABLE"));
           const card = $("day"+i);
           if(card) card.className = "dayCard c1";
         });
@@ -1566,13 +1599,11 @@ function fillCurrentLocation(){
       const heroObj = window.Model.labelByScore5(heroScore);
       // 1小时标题：整句跟随 C 值颜色（用 inline + !important 防止被 CSS 覆盖）
       const heroAllowPlus = (heroScore >= 2 && heroScore <= 4);
-      const heroLabelText = heroObj.t;
-      const heroLabelEsc = escapeHTML(String(heroLabelText));
-      const heroLabelInner = `<span style="color:${cColor(heroObj.score)} !important;" data-i18n="${heroLabelEsc}">${heroLabelEsc}</span>`;
-      safeHTML(
-        $("oneHeroLabel"),
-        maybePlusWrap(heroLabelInner, heroAllowPlus)
-      );
+      const heroKey = heroObj?.key || "";
+      const heroLabelInner = heroKey
+        ? statusSpanHTML(heroKey, `style="color:${cColor(heroObj.score)} !important;"`)
+        : `<span style="color:${cColor(heroScore)} !important;" data-i18n="—">—</span>`;
+      safeHTML($("oneHeroLabel"), maybePlusWrap(heroLabelInner, heroAllowPlus));
       // OVATION meta (time + age)
       let ovaTxt = "—";
       try {
@@ -1792,13 +1823,13 @@ function fillCurrentLocation(){
       const best = slots.filter(s => s.score5 === maxScore);
 
       // 3h burst model: show only the state (big) + one-line hint (small)
-      const burstStateCN = (s3Burst && s3Burst.state) ? String(s3Burst.state) : "—";
+      const burstStateKey = (s3Burst && s3Burst.stateKey) ? String(s3Burst.stateKey) : "";
       const burstHintCN  = (s3Burst && s3Burst.hint)  ? String(s3Burst.hint)  : "—";
-      const burstStateEsc = escapeHTML(burstStateCN);
       const burstHintEsc = escapeHTML(burstHintCN);
 
-      // big word (静默/爆发)
-      safeHTML($("threeState"), `<span data-i18n="${burstStateEsc}">${burstStateEsc}</span>`);
+      // big word (status term)
+      const burstStateHTML = burstStateKey ? statusSpanHTML(burstStateKey) : `<span data-i18n="—">—</span>`;
+      safeHTML($("threeState"), burstStateHTML);
 
       // one-line hint under the big word
       safeHTML($("threeBurst"), `<span data-i18n="${burstHintEsc}">${burstHintEsc}</span>`);
@@ -1809,15 +1840,18 @@ function fillCurrentLocation(){
       slots.forEach((s, i) => {
         const lab = (window.Model && typeof window.Model.labelByScore5 === "function")
           ? window.Model.labelByScore5(s.score5)
-          : { t: (s.score5 >= 4 ? "值得出门" : s.score5 === 3 ? "可蹲守" : s.score5 === 2 ? "低概率" : "不可观测"), score: s.score5 };
+          : {
+            key: (s.score5 >= 4 ? "WORTH_GOING_OUT" : s.score5 === 3 ? "WAIT_AND_OBSERVE" : s.score5 === 2 ? "LOW_PROBABILITY" : "UNOBSERVABLE"),
+            t: (s.score5 >= 4 ? "值得出门" : s.score5 === 3 ? "可蹲守" : s.score5 === 2 ? "低概率" : "不可观测"),
+            score: s.score5,
+          };
 
         const timeText = `${fmtHM(s.start)}–${fmtHM(s.end)}`;
         const noteText = actionNote1h(s.score5, s.gate);
-        const labEsc = escapeHTML(String(lab.t));
         const noteEsc = escapeHTML(String(noteText));
 
         safeText($("threeSlot" + i + "Time"), timeText);
-        safeHTML($("threeSlot" + i + "Conclusion"), `<span data-i18n="${labEsc}">${labEsc}</span>`);
+        safeHTML($("threeSlot" + i + "Conclusion"), lab?.key ? statusSpanHTML(String(lab.key)) : `<span data-i18n="—">—</span>`);
         safeHTML($("threeSlot" + i + "Note"), `<span data-i18n="${noteEsc}">${noteEsc}</span>`);
 
         // reason line: show a single primary factor when we have it; otherwise keep it minimal
@@ -1886,13 +1920,13 @@ function fillCurrentLocation(){
         score5 = clamp(score5, 1, 5);
 
         const map5 = {
-          5: { t: "强烈推荐", cls: "c5" },
-          4: { t: "值得出门", cls: "c4" },
-          3: { t: "可蹲守", cls: "c3" },
-          2: { t: "低概率", cls: "c2" },
-          1: { t: "不可观测", cls: "c1" },
+          5: { key: "STRONGLY_RECOMMENDED", cls: "c5" },
+          4: { key: "WORTH_GOING_OUT", cls: "c4" },
+          3: { key: "WAIT_AND_OBSERVE", cls: "c3" },
+          2: { key: "LOW_PROBABILITY", cls: "c2" },
+          1: { key: "UNOBSERVABLE", cls: "c1" },
         };
-        const lab = map5[score5];
+        const lab = map5[score5] || map5[1];
 
         // 云量更佳点（即使云量模块隐藏，这里仍作为依据展示）
         let cloudDetail = "云量更佳点：—";
@@ -1937,7 +1971,7 @@ function fillCurrentLocation(){
 
         // 写入到三列卡片
         safeText($("day"+i+"Date"), key);
-        safeHTML($("day"+i+"Conclusion"), `<span data-i18n="${escapeHTML(String(lab.t))}">${escapeHTML(String(lab.t))}</span>`);
+        safeHTML($("day"+i+"Conclusion"), lab?.key ? statusSpanHTML(String(lab.key)) : `<span data-i18n="—">—</span>`);
         safeHTML($("day"+i+"Note"), `<span data-i18n="${escapeHTML(String(actionNote72h(score5)))}">${escapeHTML(String(actionNote72h(score5)))}</span>`);
         safeHTML($("day"+i+"Basis"), basisHTML);
 
