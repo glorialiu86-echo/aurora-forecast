@@ -34,6 +34,12 @@ the agent **MUST generate a `REVIEW.md` file** in the repo root.
 - The user will review `REVIEW.md` first, not raw diffs
 - No `REVIEW.md` → no approval
 
+### 2.1.1 REVIEW.md Rewrite Rule (Mandatory)
+- REVIEW.md 只保留“当前这一轮（下一次 commit+push）”的变更摘要，不做历史累积。
+- 在一次 commit+push 发生之前：所有细碎需求/补丁/修正都必须叠加进同一个 REVIEW.md（仍需遵守固定模板）。
+- 一旦该轮 commit+push 完成：下一轮改动必须**重新改写/覆盖** REVIEW.md（仍使用同一固定模板），不允许把上一次的 `Planned` / `Open questions` / 旧变更继续保留或追加。
+- 例外：如果 REVIEW.md 中存在“长期规范/词典/约束”（例如 FIXED_I18N_MAP canonical terms 这类不随版本变化的规范段落），允许保留，但必须明确标注为 `## Reference (Long-lived)` 并与本次变更摘要区块分隔。
+
 ### 2.2 REVIEW.md Fixed Template (Do NOT alter)
 ```md
 # Review Summary
