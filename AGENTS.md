@@ -98,6 +98,25 @@ Before writing **any code**, the agent must:
 - User instructions may be in Chinese
 - Code, APIs, comments, and identifiers must be in English
 - Markdown documentation must be clear, concise, and factual
+- 语言规则：默认简体中文；仅在用户明确要求时使用英文。
+
+## 6.1 Versioning Rule (Mandatory)
+- 每次 **commit + push**（无论是否部署到 production），都必须同步更新项目版本号。
+- 当前版本号仅存在于 **index.html** 中，用于：
+  - 静态资源缓存控制（如 `?v=0319`）
+  - 页面底部展示用版本号文本（如 `v3.0.0319`）
+- 当前版本号格式为 **MMDD**（例如 0319）。
+
+### 升级规则
+- 每次 push 时，将 **index.html 中现有的版本号 `0319` 全部统一 +1**（例如 `0319 → 0320`）。
+- 仅允许修改 **index.html 内已存在的版本号位置**（预计约 8 处）。
+- ❌ 不得在其他文件中新建版本号字段
+- ❌ 不得修改文件名、变量名、配置结构或引入新的版本机制
+- ❌ 不得推断、搜索或修改“可能是版本号”的其他数字
+
+### 约束
+- 若发生 push 但未更新上述版本号，视为 **流程不合规**
+- 若越权修改 index.html 以外的文件中的“版本号”，同样视为 **违规**
 
 ---
 
