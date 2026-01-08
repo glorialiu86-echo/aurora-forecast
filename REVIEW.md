@@ -1,46 +1,75 @@
 # Review Summary
 
 ## What changed
-- 添加最小化的 `data-i18n` 到 `index.html` 现有节点（不改布局/结构）
-- 覆盖弹层/模态/分级说明等翻译节点（含 Alert/Overlay、工具介绍、规则说明）
-- 工具介绍文本按段落/标题级别补 `data-i18n`（不做整段 innerHTML 翻译）
-- `app.js` 的 `safeHTML` 固定中文片段用 `<span data-i18n>` 包裹，变量逻辑保持不变
-- 在 `trans.js` 暴露 `applyTranslation()` 与 Trans ON 状态供复用
-- 在 `run()` DOM 更新后、弹层打开、工具介绍打开时，Trans ON 触发刷新
+- Planned: add fixed i18n map for specific short UI terms and status labels to bypass machine translation
+- Planned: route selected status labels in Upstream live card and geo section through fixed mapping
+- Planned: add special-case rule for destination coordinate help text (zh keeps Chinese, non-zh uses fixed English)
+- Planned: ensure Trans ON/OFF and language changes re-apply the fixed and special-case rules consistently
+- Documented final canonical English for status/notice phrases to drive FIXED_I18N_MAP
 
 ## Files touched
-- Modified: index.html, app.js, trans.js
-- Added: REVIEW.md
+- Modified: trans.js, app.js, index.html
+- Added:
 - Deleted:
 
 ## Behavior impact
-- What user-visible behavior changed
-  - Trans ON：更多静态/动态文本可翻译
-  - Trans OFF：文案保持中文
-- What explicitly did NOT change
-  - 不改数据源、计算逻辑、业务逻辑
-  - 不调整 `index.html` 布局结构
-  - 模型输出仍为中文，仅 UI 层翻译（本轮有意取舍）
+- User-visible: specific UI labels (cloud cover, moon altitude, updated, data freshness, solar wind, acquired, generated) display fixed English when Trans ON and non-zh, revert to Chinese when Trans OFF
+- User-visible: destination coordinate help text shows Chinese in zh and fixed English in non-zh without machine translation
+- Unchanged: business logic, data fetching, layout/DOM structure, and the footer署名 @小狮子佑酱
 
 ## Risk assessment
-- Possible failure modes
-  - 遗漏 `data-i18n` 导致局部未翻译
-  - `safeHTML` 包裹不当导致 HTML 结构异常
-  - Trans OFF 判断错误导致误刷新
-- Performance / cost / quota impact
-  - Trans ON 时翻译请求略增
-- Deployment or environment risks
-  - 仅影响 UI 翻译表现
+- Possible failure modes: fixed map misses a string variant and falls back to machine translation or Chinese
+- Performance / cost / quota impact: reduced translation API usage for mapped phrases
+- Deployment or environment risks: none; changes are client-side and limited to i18n
 
 ## How to test
-1. Safari 打开页面，切换 Trans ON
-2. 首屏/结论区/72h 分级说明应被翻译
-3. 切换 1h/3h/72h，新增文本可翻译
-4. 打开“工具介绍”与数据可信度弹层，文案可翻译
-5. Trans OFF，全部恢复中文
+1. In Safari, toggle Trans ON with a non-zh language environment
+2. Verify mapped labels show fixed English in Upstream live card and geo section; destination help text shows fixed English
+3. Toggle Trans OFF; verify the same labels revert to original Chinese
+4. Click Get current position; verify “已获取/已获取位置/已生成。” map correctly under Trans ON
+5. Switch 1h / 3h / 72h and open tool intro/modal; verify fixed mapping remains applied
 
 ## Rollback plan
-- 回滚或撤销 `index.html`、`app.js`、`trans.js` 改动
+- Revert the commit on staging or switch back to the previous staging revision
 
 ## Open questions / follow-ups
-- None.
+- Confirm exact DOM nodes for destination coordinate help text and status labels before implementation
+- Confirm whether any additional short labels should be added to the fixed map
+
+## FIXED_I18N_MAP canonical terms (finalized)
+Status terms (English is canonical; allow en -> target translation only; disallow zh -> target translation)
+- 静默 -> stand in silence
+- 爆发进行中 -> in outburst
+- 爆发中 -> in outburst (alias)
+- 爆发概率上升 -> outburst building
+- 爆发后衰落期 -> fading after outburst
+- 值得出门 -> worth going out
+- 可蹲守 -> wait-and-observe
+- 低概率 -> low probability
+- 不可观测 -> unobservable
+- 不可观测。 -> (remove; do not keep this variant)
+
+Progress / status prompts
+- 拉取数据中… -> Fetching data…
+- 等待生成。 -> Waiting…
+- 已生成。 -> Generated.
+- 已获取 ✓ -> Acquired ✓
+- 已获取当前位置 -> Location acquired
+- 📍 正在获取当前位置… -> Getting current location…
+- 📍 无法获取定位 -> Unable to get location
+
+Warnings / errors
+- ⚠️ 数据可信度提醒 -> ⚠️ Data reliability notice
+- ⚠️ 磁纬过低：已停止生成 -> ⚠️ MLAT too low: generation stopped
+- 磁纬过低，已停止生成 -> MLAT too low. Generation stopped
+- ⚠️ 磁纬限制：不可观测 -> ⚠️ MLAT limit: unobservable
+- ⚠️ 磁纬较低：仅极端事件才可能 -> ⚠️ Low MLAT: only extreme events may work
+- ⚠️ 经纬度输入无效 -> ⚠️ Invalid coordinates
+- ⚠️ 经纬度超出范围 -> ⚠️ Coordinates out of range
+- ⚠️ 无法获取定位 -> ⚠️ Unable to get location
+- ⚠️ 定位处理异常 -> ⚠️ Location error
+- ⚠️ 定位返回无效坐标 -> ⚠️ Invalid location returned
+
+Badge roots
+- 太阳风 -> Solar wind
+- 云量 -> Cloud cover

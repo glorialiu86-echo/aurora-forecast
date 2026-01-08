@@ -4,6 +4,44 @@
   const LANGS_KEY = "ac_deepl_langs";
   const CACHE_KEY = "ac_trans_cache";
   const LANGS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const FIXED_I18N_MAP = {
+    "云量": "Cloud cover",
+    "月角": "Moon altitude",
+    "更新时间": "Updated",
+    "新鲜度": "Data freshness",
+    "太阳风": "Solar wind",
+    "已生成。": "Generated.",
+    "已获取": "Acquired",
+    "已获取 ✓": "Acquired ✓",
+    "已获取位置": "Location acquired",
+    "已获取当前位置": "Location acquired",
+    "静默": "stand in silence",
+    "爆发进行中": "in outburst",
+    "爆发中": "in outburst",
+    "爆发概率上升": "outburst building",
+    "爆发后衰落期": "fading after outburst",
+    "值得出门": "worth going out",
+    "可蹲守": "wait-and-observe",
+    "低概率": "low probability",
+    "不可观测": "unobservable",
+    "拉取数据中…": "Fetching data…",
+    "等待生成。": "Waiting…",
+    "📍 正在获取当前位置…": "Getting current location…",
+    "📍 无法获取定位": "Unable to get location",
+    "⚠️ 数据可信度提醒": "⚠️ Data reliability notice",
+    "⚠️ 磁纬过低：已停止生成": "⚠️ MLAT too low: generation stopped",
+    "磁纬过低，已停止生成": "MLAT too low. Generation stopped",
+    "⚠️ 磁纬限制：不可观测": "⚠️ MLAT limit: unobservable",
+    "⚠️ 磁纬较低：仅极端事件才可能": "⚠️ Low MLAT: only extreme events may work",
+    "⚠️ 经纬度输入无效": "⚠️ Invalid coordinates",
+    "⚠️ 经纬度超出范围": "⚠️ Coordinates out of range",
+    "⚠️ 无法获取定位": "⚠️ Unable to get location",
+    "⚠️ 定位处理异常": "⚠️ Location error",
+    "⚠️ 定位返回无效坐标": "⚠️ Invalid location returned",
+    "—— @小狮子佑酱": "—— @小狮子佑酱",
+  };
+  const GEO_HINT_ID = "geoHintBody";
+  const GEO_HINT_EN = "Destination coordinates: you can get lat/long by dropping a pin in Apple Maps or Google Maps, then copying the latitude & longitude from the place details.";
 
   const getConfig = () => {
     const cfg = window.TRANS_CONFIG || {};
@@ -156,31 +194,65 @@
     });
   };
 
+  const resolveFixedText = (source, target) => {
+    if(!source) return null;
+    if(Object.prototype.hasOwnProperty.call(FIXED_I18N_MAP, source)){
+      return target.startsWith("zh") ? source : FIXED_I18N_MAP[source];
+    }
+    if(source.startsWith("已获取当前位置")){
+      const suffix = source.slice("已获取当前位置".length);
+      const base = FIXED_I18N_MAP["已获取当前位置"] || "Location acquired";
+      return target.startsWith("zh") ? source : `${base}${suffix}`;
+    }
+    return null;
+  };
+
+  const applyGeoHintRule = (target, state) => {
+    const el = document.getElementById(GEO_HINT_ID);
+    if(!el) return;
+    const source = String(el.getAttribute("data-i18n") || el.textContent || "").trim();
+    if(!source) return;
+    if(state !== "on" || target.startsWith("zh")){
+      el.textContent = source;
+      return;
+    }
+    el.textContent = GEO_HINT_EN;
+  };
+
   const applyTranslation = async () => {
     const myJob = ++jobId;
     const elements = Array.from(document.querySelectorAll("[data-i18n]"));
 
     if(currentState !== "on"){
       restoreOriginal(elements);
+      applyGeoHintRule("zh", "off");
       return;
     }
 
     const cfg = getConfig();
-    if(!cfg.apiBase){
-      showNoServiceHint();
-      restoreOriginal(elements);
-      return;
-    }
-
     const target = await resolveTarget();
     if(myJob !== jobId || currentState !== "on") return;
+    const canTranslate = !!cfg.apiBase;
+    if(!canTranslate){
+      showNoServiceHint();
+    }
 
     const cache = getCacheMap();
     const pending = [];
 
     for(const el of elements){
+      if(el.id === GEO_HINT_ID) continue;
       const source = String(el.getAttribute("data-i18n") || "").trim();
       if(!source){
+        continue;
+      }
+      const fixed = resolveFixedText(source, target);
+      if(fixed != null){
+        el.textContent = fixed;
+        continue;
+      }
+      if(!canTranslate){
+        el.textContent = source;
         continue;
       }
       const key = `${target}::${source}`;
@@ -192,6 +264,7 @@
     }
 
     if(!pending.length){
+      applyGeoHintRule(target, currentState);
       return;
     }
 
@@ -207,6 +280,7 @@
       }
     }
     setCacheMap(cache);
+    applyGeoHintRule(target, currentState);
   };
 
   const updateToggleText = (btn) => {

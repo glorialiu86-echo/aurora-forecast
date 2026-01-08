@@ -54,33 +54,65 @@ const SW_PLACEHOLDER_HTML = `
     <span><span class="swK">N</span> <span class="swV">—</span></span>
   </div>
   <div class="swAux">
-    <span class="swAuxItem">云 L/M/H —/—/—%</span>
-    <span class="swAuxItem">月角 —°</span>
+    <span class="swAuxItem"><span data-i18n="云量">云量</span> L/M/H —/—/—%</span>
+    <span class="swAuxItem"><span data-i18n="月角">月角</span> —°</span>
   </div>
 `;
 // --- status / cache / format helpers (must work even when UI.js is not ready) ---
 const setStatusText = (t) => {
   const el = document.getElementById("statusText");
-  if(el) el.textContent = (t == null ? "" : String(t));
+  const text = (t == null ? "" : String(t));
+  if(el){
+    el.textContent = text;
+    if(text){
+      el.setAttribute("data-i18n", text);
+    }else{
+      el.removeAttribute("data-i18n");
+    }
+  }
   if(uiReady() && typeof window.UI.setStatusText === "function"){
     try{ window.UI.setStatusText(t); }catch(_){ /* ignore */ }
+  }
+  if(window.AC_TRANS?.isOn?.()){
+    window.AC_TRANS.applyTranslation?.();
   }
 };
 
 const setStatusDots = (items) => {
-  // Prefer UI renderer when available
-  if(uiReady() && typeof window.UI.setStatusDots === "function"){
-    try{ window.UI.setStatusDots(items); return; }catch(_){ /* fall through */ }
-  }
-  // Fallback: render simple text list
   const wrap = document.getElementById("statusDots");
   if(!wrap) return;
   const arr = Array.isArray(items) ? items : [];
+
+  const esc = (s) => String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+
+  const renderDotText = (txt) => {
+    const raw = String(txt || "");
+    if(raw.startsWith("太阳风")){
+      const rest = raw.slice("太阳风".length);
+      return `<span data-i18n="太阳风">太阳风</span>${esc(rest)}`;
+    }
+    if(raw.startsWith("云量")){
+      const rest = raw.slice("云量".length);
+      return `<span data-i18n="云量">云量</span>${esc(rest)}`;
+    }
+    const rawEsc = esc(raw);
+    return `<span data-i18n="${rawEsc}">${rawEsc}</span>`;
+  };
+
   wrap.innerHTML = arr.map(it => {
     const lvl = (it && it.level) ? String(it.level) : "warn";
     const txt = (it && it.text) ? String(it.text) : "";
-    return `<span class="dot ${lvl}"></span><span class="dotText">${escapeHTML(txt)}</span>`;
-  }).join(" ");
+    return `<div class="dot ${lvl}">${renderDotText(txt)}</div>`;
+  }).join("");
+
+  if(window.AC_TRANS?.isOn?.()){
+    window.AC_TRANS.applyTranslation?.();
+  }
 };
 
 const cacheSet = (k, v) => {
@@ -582,6 +614,7 @@ function flashGeoButtonSuccess(){
   // remember original label once
   if(!btn.dataset.labelOriginal){
     btn.dataset.labelOriginal = btn.textContent || "📍获取位置";
+    btn.dataset.labelOriginalI18n = btn.getAttribute("data-i18n") || btn.dataset.labelOriginal;
   }
 
   // clear pending reset if user clicks again
@@ -589,10 +622,18 @@ function flashGeoButtonSuccess(){
 
   // temporary label (no class change -> no color jump)
   btn.textContent = "已获取 ✓";
+  btn.setAttribute("data-i18n", "已获取 ✓");
+  if(window.AC_TRANS?.isOn?.()){
+    window.AC_TRANS.applyTranslation?.();
+  }
 
   // restore after 1.5s
   __geoBtnResetTimer = setTimeout(() => {
     btn.textContent = btn.dataset.labelOriginal || "📍获取位置";
+    btn.setAttribute("data-i18n", btn.dataset.labelOriginalI18n || btn.dataset.labelOriginal || "📍获取位置");
+    if(window.AC_TRANS?.isOn?.()){
+      window.AC_TRANS.applyTranslation?.();
+    }
     __geoBtnResetTimer = null;
   }, 1500);
 }
@@ -1168,7 +1209,7 @@ function fillCurrentLocation(){
           safeText($("threeSlot"+i+"Time"), "—");
           safeHTML($("threeSlot"+i+"Conclusion"), `<span data-i18n="不可观测">不可观测</span>`);
           safeText($("threeSlot"+i+"Note"), actionNote1h(1, { hardBlock:true }));
-          safeHTML($("threeSlot"+i+"Reason"), `<span data-i18n="不可观测。">不可观测。</span>`);
+          safeHTML($("threeSlot"+i+"Reason"), `<span data-i18n="不可观测">不可观测</span>`);
           const card = $("threeSlot"+i);
           if(card) card.className = "dayCard c1";
         });
@@ -1178,7 +1219,7 @@ function fillCurrentLocation(){
           safeText($("day"+i+"Date"), "—");
           safeHTML($("day"+i+"Conclusion"), `<span data-i18n="不可观测">不可观测</span>`);
           safeText($("day"+i+"Note"), actionNote72h(1));
-          safeHTML($("day"+i+"Basis"), `<span data-i18n="不可观测。">不可观测。</span>`);
+          safeHTML($("day"+i+"Basis"), `<span data-i18n="不可观测">不可观测</span>`);
           const card = $("day"+i);
           if(card) card.className = "dayCard c1";
         });
@@ -1189,7 +1230,7 @@ function fillCurrentLocation(){
           { level:"ok", text:"云量 —" },
           { level:"ok", text:"OVATION —" },
         ]);
-        setStatusText("⚠️ 磁纬过低：已停止生成。 ");
+        setStatusText("⚠️ 磁纬过低：已停止生成");
         return;
       }
 
@@ -1360,7 +1401,7 @@ function fillCurrentLocation(){
       if(clouds?.ok && clouds?.data){
         const cnow = cloudNow3layer(clouds.data, baseDate);
         if(cnow){
-          cloudLine = `云 L/M/H ${cnow.low}/${cnow.mid}/${cnow.high}%`;
+          cloudLine = `L/M/H ${cnow.low}/${cnow.mid}/${cnow.high}%`;
         }
       }
     }catch(_){ cloudLine = ""; }
@@ -1370,7 +1411,7 @@ function fillCurrentLocation(){
     try{
       const moonAlt = getMoonAltDeg(baseDate, lat, lon);
       if(Number.isFinite(moonAlt)){
-        moonLine = `月角 ${moonAlt.toFixed(1)}°`;
+        moonLine = `${moonAlt.toFixed(1)}°`;
       }
     }catch(_){ moonLine = ""; }
 
@@ -1390,8 +1431,16 @@ function fillCurrentLocation(){
     ].join(" <span class=\"swSep\">｜</span> ");
 
     const line2Parts = [];
-    if(cloudLine) line2Parts.push(`<span class="swAuxItem">${escapeHTML(cloudLine)}</span>`);
-    if(moonLine)  line2Parts.push(`<span class="swAuxItem">${escapeHTML(moonLine)}</span>`);
+    if(cloudLine){
+      line2Parts.push(
+        `<span class="swAuxItem"><span data-i18n="云量">云量</span> ${escapeHTML(cloudLine)}</span>`
+      );
+    }
+    if(moonLine){
+      line2Parts.push(
+        `<span class="swAuxItem"><span data-i18n="月角">月角</span> ${escapeHTML(moonLine)}</span>`
+      );
+    }
 
     const line2 = line2Parts.length
       ? `<div class="swAux">${line2Parts.join(" <span class=\"swSep\">｜</span> ")}</div>`
@@ -1404,9 +1453,14 @@ function fillCurrentLocation(){
       
       // meta: show timestamps + freshness
       const tsText = sw.time_tag ? fmtYMDHM(new Date(sw.time_tag)) : "—";
-      safeText(
+      const magAge = Math.round(rt.imf.ageMin);
+      const plasmaAge = Math.round(rt.solarWind.ageMin);
+      const backfillText = Number.isFinite(sw._plasmaBackfillAgeMin) ? ` ・ V/N回溯：${sw._plasmaBackfillAgeMin}m` : "";
+      safeHTML(
         $("swMeta"),
-        `更新时间：${tsText} ・ 新鲜度：mag ${Math.round(rt.imf.ageMin)}m / plasma ${Math.round(rt.solarWind.ageMin)}m${Number.isFinite(sw._plasmaBackfillAgeMin) ? ` ・ V/N回溯：${sw._plasmaBackfillAgeMin}m` : ""}`
+        `<span data-i18n="更新时间">更新时间</span>：${escapeHTML(tsText)} ・ ` +
+          `<span data-i18n="新鲜度">新鲜度</span>：mag ${escapeHTML(String(magAge))}m / plasma ${escapeHTML(String(plasmaAge))}m` +
+          `${escapeHTML(backfillText)}`
       );
       
       // OUTAGE 不硬停：提示 + 弱模式/降权

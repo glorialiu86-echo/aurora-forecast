@@ -10,7 +10,7 @@
   <!-- Description for link preview -->
   <meta name="description" content="现在要不要出门追光？一键给出观测窗口">
   <meta property="og:description" content="现在要不要出门追光？一键给出观测窗口">
-  <link rel="stylesheet" href="./style.css?v=0320" />
+  <link rel="stylesheet" href="./style.css?v=0321" />
   <!-- SunCalc: 太阳/月亮高度（仅后台计算，不在前台露出） -->
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
   <!-- Chart.js: 1小时 C值柱状图 -->
@@ -24,7 +24,7 @@
 
       var link = document.createElement("link");
       link.rel = "stylesheet";
-      link.href = "./staging.css?v=0320";
+      link.href = "./staging.css?v=0321";
       document.head.appendChild(link);
 
       var bar = document.createElement("div");
@@ -83,14 +83,14 @@
 
       <details class="faq">
         <summary id="geoHintSummary" data-i18n="推荐直接“获取当前位置”，也可手动输入经纬度">推荐直接“获取当前位置”，也可手动输入经纬度</summary>
-        <div class="faqBody" id="geoHintBody">
+        <div class="faqBody" id="geoHintBody" data-i18n="目的地经纬度：可通过奥维地图长按获取，或使用腾讯地图坐标拾取器：https://lbs.qq.com/getPoint/。">
           目的地经纬度：可通过奥维地图长按获取，或使用腾讯地图坐标拾取器：https://lbs.qq.com/getPoint/。
         </div>
       </details>
 
       <div class="row statusRow" aria-label="数据状态">
         <div class="statusPills" id="statusDots"></div>
-        <div class="statusText" id="statusText" aria-live="polite">等待生成。</div>
+        <div class="statusText" id="statusText" aria-live="polite" data-i18n="等待生成。">等待生成。</div>
       </div>
     </section>
 
@@ -137,8 +137,8 @@
           </div>
 
           <div class="swAux">
-            <span class="swAuxItem">云 L/M/H —/—/—%</span>
-            <span class="swAuxItem">月角 —°</span>
+            <span class="swAuxItem"><span data-i18n="云量">云量</span> L/M/H —/—/—%</span>
+            <span class="swAuxItem"><span data-i18n="月角">月角</span> —°</span>
           </div>
         </div>
         <div class="small" id="swMeta">—</div>
@@ -291,7 +291,7 @@
     </section>
 
     <footer class="foot">
-      佑酱已吐血更新到版本号：v3.0.0320
+      佑酱已吐血更新到版本号：v3.0.0321
       <br>数据源：NOAA SWPC（实时太阳风、OVATION nowcast、Kp 预报）与 Open-Meteo 云量预报。磁纬（MLAT）当前为估算（偶极近似）；若接入 AACGMv2 换算服务，将自动切换为真实 AACGMv2。
     </footer>
   </div>
@@ -418,11 +418,11 @@
     };
   </script>
   <!-- your modules -->
-  <script defer src="./adapter.js?v=0320"></script>
-  <script defer src="./ui.js?v=0320"></script>
-  <script defer src="./trans.js?v=0320"></script>
-  <script defer src="./model.js?v=0320"></script>
-  <script defer src="./app.js?v=0320"></script>
+  <script defer src="./adapter.js?v=0321"></script>
+  <script defer src="./ui.js?v=0321"></script>
+  <script defer src="./trans.js?v=0321"></script>
+  <script defer src="./model.js?v=0321"></script>
+  <script defer src="./app.js?v=0321"></script>
   
 </body>
 </html>
