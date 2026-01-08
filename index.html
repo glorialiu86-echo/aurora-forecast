@@ -10,7 +10,7 @@
   <!-- Description for link preview -->
   <meta name="description" content="现在要不要出门追光？一键给出观测窗口">
   <meta property="og:description" content="现在要不要出门追光？一键给出观测窗口">
-  <link rel="stylesheet" href="./style.css?v=0319" />
+  <link rel="stylesheet" href="./style.css?v=0320" />
   <!-- SunCalc: 太阳/月亮高度（仅后台计算，不在前台露出） -->
   <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
   <!-- Chart.js: 1小时 C值柱状图 -->
@@ -24,7 +24,7 @@
 
       var link = document.createElement("link");
       link.rel = "stylesheet";
-      link.href = "./staging.css?v=0319";
+      link.href = "./staging.css?v=0320";
       document.head.appendChild(link);
 
       var bar = document.createElement("div");
@@ -152,7 +152,7 @@
               <div class="k" data-i18n="1小时 C值（Capture）柱状图">1小时 C值（Capture）柱状图</div>
               <div class="small" data-i18n="C值越高，越建议投入。">C值越高，越建议投入。</div>
             </div>
-            <div class="pill" id="unit10m">单位：10分钟</div>
+            <div class="pill" id="unit10m" data-i18n="单位：10分钟">单位：10分钟</div>
           </div>
           <div class="chartWrap">
             <canvas id="cChart"></canvas>
@@ -162,11 +162,11 @@
         <div class="card explain">
           <div class="k" data-i18n="1小时预测结论分级（C值）">1小时预测结论分级（C值）</div>
           <ul class="bullets">
-            <li><b>【C值5】强烈推荐</b>：投入回报高，建议立即行动。</li>
-            <li><b>【C值4】值得出门</b>：条件不错，建议准备与试拍。</li>
-            <li><b>【C值3】可蹲守</b>：存在机会，建议架机等待触发。</li>
-            <li><b>【C值2】低概率</b>：机会小，可低成本尝试。</li>
-            <li><b>【C值1】不可观测</b>：当前时段不建议投入。</li>
+            <li><b data-i18n="【C值5】强烈推荐">【C值5】强烈推荐</b><span data-i18n="：投入回报高，建议立即行动。">：投入回报高，建议立即行动。</span></li>
+            <li><b data-i18n="【C值4】值得出门">【C值4】值得出门</b><span data-i18n="：条件不错，建议准备与试拍。">：条件不错，建议准备与试拍。</span></li>
+            <li><b data-i18n="【C值3】可蹲守">【C值3】可蹲守</b><span data-i18n="：存在机会，建议架机等待触发。">：存在机会，建议架机等待触发。</span></li>
+            <li><b data-i18n="【C值2】低概率">【C值2】低概率</b><span data-i18n="：机会小，可低成本尝试。">：机会小，可低成本尝试。</span></li>
+            <li><b data-i18n="【C值1】不可观测">【C值1】不可观测</b><span data-i18n="：当前时段不建议投入。">：当前时段不建议投入。</span></li>
           </ul>
         </div>
       </div>
@@ -228,11 +228,11 @@
       <div class="card explain">
         <div class="k" data-i18n="3小时结论分级（C值）">3小时结论分级（C值）</div>
         <ul class="bullets">
-          <li><b>【C值5】强烈推荐</b>：投入回报高，建议立即行动。</li>
-          <li><b>【C值4】值得出门</b>：条件不错，建议准备与试拍。</li>
-          <li><b>【C值3】可蹲守</b>：存在机会，建议架机等待触发。</li>
-          <li><b>【C值2】低概率</b>：机会小，可低成本尝试。</li>
-          <li><b>【C值1】不可观测</b>：当前时段不建议投入。</li>
+          <li><b data-i18n="【C值5】强烈推荐">【C值5】强烈推荐</b><span data-i18n="：投入回报高，建议立即行动。">：投入回报高，建议立即行动。</span></li>
+          <li><b data-i18n="【C值4】值得出门">【C值4】值得出门</b><span data-i18n="：条件不错，建议准备与试拍。">：条件不错，建议准备与试拍。</span></li>
+          <li><b data-i18n="【C值3】可蹲守">【C值3】可蹲守</b><span data-i18n="：存在机会，建议架机等待触发。">：存在机会，建议架机等待触发。</span></li>
+          <li><b data-i18n="【C值2】低概率">【C值2】低概率</b><span data-i18n="：机会小，可低成本尝试。">：机会小，可低成本尝试。</span></li>
+          <li><b data-i18n="【C值1】不可观测">【C值1】不可观测</b><span data-i18n="：当前时段不建议投入。">：当前时段不建议投入。</span></li>
         </ul>
       </div>
 
@@ -248,7 +248,7 @@
         <div class="daysTri" id="daysTri">
           <div class="dayCard" id="day0">
             <div class="dayHead">
-              <div class="dayLabel">今天</div>
+              <div class="dayLabel" data-i18n="今天">今天</div>
               <div class="dayDate" id="day0Date">—</div>
             </div>
             <div class="dayConclusion" id="day0Conclusion">—</div>
@@ -258,7 +258,7 @@
 
           <div class="dayCard" id="day1">
             <div class="dayHead">
-              <div class="dayLabel">明天</div>
+              <div class="dayLabel" data-i18n="明天">明天</div>
               <div class="dayDate" id="day1Date">—</div>
             </div>
             <div class="dayConclusion" id="day1Conclusion">—</div>
@@ -268,7 +268,7 @@
 
           <div class="dayCard" id="day2">
             <div class="dayHead">
-              <div class="dayLabel">后天</div>
+              <div class="dayLabel" data-i18n="后天">后天</div>
               <div class="dayDate" id="day2Date">—</div>
             </div>
             <div class="dayConclusion" id="day2Conclusion">—</div>
@@ -281,17 +281,17 @@
       <div class="card explain">
         <div class="k" data-i18n="72小时结论分级（C值）">72小时结论分级（C值）</div>
         <ul class="bullets">
-          <li><b>【C值5】强烈推荐</b>：能量背景+送达能力更强，值得提前规划。</li>
-          <li><b>【C值4】值得出门</b>：存在机会，重点看云与当晚即时模块。</li>
-          <li><b>【C值3】可蹲守</b>：机会少，除非位置/条件极佳。</li>
-          <li><b>【C值2】低概率</b>：综合偏弱，提前投入意义不大。</li>
-          <li><b>【C值1】不可观测</b>：不建议投入。</li>
+          <li><b data-i18n="【C值5】强烈推荐">【C值5】强烈推荐</b><span data-i18n="：能量背景+送达能力更强，值得提前规划。">：能量背景+送达能力更强，值得提前规划。</span></li>
+          <li><b data-i18n="【C值4】值得出门">【C值4】值得出门</b><span data-i18n="：存在机会，重点看云与当晚即时模块。">：存在机会，重点看云与当晚即时模块。</span></li>
+          <li><b data-i18n="【C值3】可蹲守">【C值3】可蹲守</b><span data-i18n="：机会少，除非位置/条件极佳。">：机会少，除非位置/条件极佳。</span></li>
+          <li><b data-i18n="【C值2】低概率">【C值2】低概率</b><span data-i18n="：综合偏弱，提前投入意义不大。">：综合偏弱，提前投入意义不大。</span></li>
+          <li><b data-i18n="【C值1】不可观测">【C值1】不可观测</b><span data-i18n="：不建议投入。">：不建议投入。</span></li>
         </ul>
       </div>
     </section>
 
     <footer class="foot">
-      佑酱已吐血更新到版本号：v3.0.0319
+      佑酱已吐血更新到版本号：v3.0.0320
       <br>数据源：NOAA SWPC（实时太阳风、OVATION nowcast、Kp 预报）与 Open-Meteo 云量预报。磁纬（MLAT）当前为估算（偶极近似）；若接入 AACGMv2 换算服务，将自动切换为真实 AACGMv2。
     </footer>
   </div>
@@ -306,79 +306,79 @@
       </div>
       <div class="modalBody">
         <div id="aboutBodyCN">
-        <p class="aboutSectionTitle">
+        <p class="aboutSectionTitle" data-i18n="工具应该怎么使用？">
           工具应该怎么使用？
         </p>
 
-        <p>
+        <p data-i18n="输入经纬度，系统会自动读取你当前所在的时间与时区，生成极光观测预告。">
           输入经纬度，系统会自动读取你当前所在的时间与时区，生成极光观测预告。
         </p>
 
         <p>
-          <b>【1 小时精准】</b><br>
-          以 10 分钟为粒度，即时回答：<br>
-          「我现在要不要出门？要不要架机？」
+          <b data-i18n="【1 小时精准】">【1 小时精准】</b><br>
+          <span data-i18n="以 10 分钟为粒度，即时回答：">以 10 分钟为粒度，即时回答：</span><br>
+          <span data-i18n="「我现在要不要出门？要不要架机？」">「我现在要不要出门？要不要架机？」</span>
         </p>
 
         <p>
-          <b>【3 小时预测】</b><br>
-          呈现逐小时状态，选出最适合观测极光的一个小时。<br>
-          同时告诉你当前极光是处在爆发中还是已衰落，并回答：<br>
-          「接下来 3 小时值不值得守？」
+          <b data-i18n="【3 小时预测】">【3 小时预测】</b><br>
+          <span data-i18n="呈现逐小时状态，选出最适合观测极光的一个小时。">呈现逐小时状态，选出最适合观测极光的一个小时。</span><br>
+          <span data-i18n="同时告诉你当前极光是处在爆发中还是已衰落，并回答：">同时告诉你当前极光是处在爆发中还是已衰落，并回答：</span><br>
+          <span data-i18n="「接下来 3 小时值不值得守？」">「接下来 3 小时值不值得守？」</span>
         </p>
 
         <p>
-          <b>【72 小时范围】</b><br>
-          引入更多 CH 与 CME 日冕物质抛射的信息，以天为单位，预测极光爆发的可能性。<br>
-          从更宏观的数据视角，回答：<br>
-          「未来三天，哪一天最值得安排时间？」
+          <b data-i18n="【72 小时范围】">【72 小时范围】</b><br>
+          <span data-i18n="引入更多 CH 与 CME 日冕物质抛射的信息，以天为单位，预测极光爆发的可能性。">引入更多 CH 与 CME 日冕物质抛射的信息，以天为单位，预测极光爆发的可能性。</span><br>
+          <span data-i18n="从更宏观的数据视角，回答：">从更宏观的数据视角，回答：</span><br>
+          <span data-i18n="「未来三天，哪一天最值得安排时间？」">「未来三天，哪一天最值得安排时间？」</span>
         </p>
 
-        <p class="aboutSectionTitle">
+        <p class="aboutSectionTitle" data-i18n="极光预测，为什么不能只是 KP？">
           极光预测，为什么不能只是 KP？
         </p>
 
         <p>
-          KP 是为全球空间天气监测而设计的宏观指标。<br>
-          它在航天器运行、电力系统防护、长期磁扰评估中非常有效，<br>
-          但它的设计目标，从来不是服务于具体地点、具体时段的地面观测者。
+          <span data-i18n="KP 是为全球空间天气监测而设计的宏观指标。">KP 是为全球空间天气监测而设计的宏观指标。</span><br>
+          <span data-i18n="它在航天器运行、电力系统防护、长期磁扰评估中非常有效，">它在航天器运行、电力系统防护、长期磁扰评估中非常有效，</span><br>
+          <span data-i18n="但它的设计目标，从来不是服务于具体地点、具体时段的地面观测者。">但它的设计目标，从来不是服务于具体地点、具体时段的地面观测者。</span>
         </p>
 
         <p>
-          对于普通极光观测与拍摄来说，KP 的粒度过于粗糙。<br>
-          它不区分 IMF 的瞬时方向变化，也难以反映短时稳定性与局地响应。<br>
-          这也是为什么在真实体验中，常常会出现：<br>
-          KP 看似“非常合适”，却完全无法观测或拍摄的情况。
+          <span data-i18n="对于普通极光观测与拍摄来说，KP 的粒度过于粗糙。">对于普通极光观测与拍摄来说，KP 的粒度过于粗糙。</span><br>
+          <span data-i18n="它不区分 IMF 的瞬时方向变化，也难以反映短时稳定性与局地响应。">它不区分 IMF 的瞬时方向变化，也难以反映短时稳定性与局地响应。</span><br>
+          <span data-i18n="这也是为什么在真实体验中，常常会出现：">这也是为什么在真实体验中，常常会出现：</span><br>
+          <span data-i18n="KP 看似“非常合适”，却完全无法观测或拍摄的情况。">KP 看似“非常合适”，却完全无法观测或拍摄的情况。</span>
         </p>
-        <p>
+        <p data-i18n="于是，在漠河零下40度的寒夜中，Aurora Capture 诞生了。">
           于是，在漠河零下40度的寒夜中，Aurora Capture 诞生了。
         </p>
         <p>
-          C 值（Capture指数）并不是用来替代 KP 的。<br>
-          它更像是一个面向摄影师与追光者的【可拍可观指数】。
+          <span data-i18n="C 值（Capture指数）并不是用来替代 KP 的。">C 值（Capture指数）并不是用来替代 KP 的。</span><br>
+          <span data-i18n="它更像是一个面向摄影师与追光者的【可拍可观指数】。">它更像是一个面向摄影师与追光者的【可拍可观指数】。</span>
         </p>
 
         <p>
-          作为一名理工科出身的风光摄影爱好者，<br>
-          我尝试从更接近观测者的角度出发，直接调用太阳风与磁场的原始参数建模，<br>
-          在更短的时间尺度上，评估它们是否正在形成一个对拍摄友好的窗口。
+          <span data-i18n="作为一名理工科出身的风光摄影爱好者，">作为一名理工科出身的风光摄影爱好者，</span><br>
+          <span data-i18n="我尝试从更接近观测者的角度出发，直接调用太阳风与磁场的原始参数建模，">我尝试从更接近观测者的角度出发，直接调用太阳风与磁场的原始参数建模，</span><br>
+          <span data-i18n="在更短的时间尺度上，评估它们是否正在形成一个对拍摄友好的窗口。">在更短的时间尺度上，评估它们是否正在形成一个对拍摄友好的窗口。</span>
         </p>
 
         <p>
-          让我们一起看看：<br>
-          此刻，地球手里握着的，究竟是一副什么样的牌？
+          <span data-i18n="让我们一起看看：">让我们一起看看：</span><br>
+          <span data-i18n="此刻，地球手里握着的，究竟是一副什么样的牌？">此刻，地球手里握着的，究竟是一副什么样的牌？</span>
         </p>
 
-        <p class="aboutSectionTitle" style="margin-top:18px;">
+        <p class="aboutSectionTitle" style="margin-top:18px;" data-i18n="反馈与建议">
           反馈与建议
         </p>
         <p>
-          报错 / 建议 / 数据异常 请发送邮件至：<br>
+          <span data-i18n="报错 / 建议 / 数据异常 请发送邮件至：">报错 / 建议 / 数据异常 请发送邮件至：</span><br>
           <a href="mailto:auroracapture.feedback@gmail.com" style="color:rgba(255,255,255,.85); text-decoration:underline;">auroracapture.feedback@gmail.com</a><br>
-          <span style="display:inline-block; margin-top:6px; color:rgba(255,255,255,.55); font-size:12px;">个人维护，可能延迟回复。</span>
+          <span style="display:inline-block; margin-top:6px; color:rgba(255,255,255,.55); font-size:12px;" data-i18n="个人维护，可能延迟回复。">个人维护，可能延迟回复。</span>
         </p>
 
-        <p style="margin-top:18px; text-align:right; color:rgba(255,255,255,.55); font-size:12px;">
+        <p style="margin-top:18px; text-align:right; color:rgba(255,255,255,.55); font-size:12px;" data-i18n="—— @小狮子佑酱">
           —— @小狮子佑酱
         </p>
         </div>
@@ -418,11 +418,11 @@
     };
   </script>
   <!-- your modules -->
-  <script defer src="./adapter.js?v=0319"></script>
-  <script defer src="./ui.js?v=0319"></script>
-  <script defer src="./trans.js?v=0319"></script>
-  <script defer src="./model.js?v=0319"></script>
-  <script defer src="./app.js?v=0319"></script>
+  <script defer src="./adapter.js?v=0320"></script>
+  <script defer src="./ui.js?v=0320"></script>
+  <script defer src="./trans.js?v=0320"></script>
+  <script defer src="./model.js?v=0320"></script>
+  <script defer src="./app.js?v=0320"></script>
   
 </body>
 </html>

@@ -230,6 +230,11 @@
     const stored = getStoredState();
     currentState = stored || getDefaultState();
     updateToggleText(btn);
+
+    window.AC_TRANS = window.AC_TRANS || {};
+    window.AC_TRANS.applyTranslation = applyTranslation;
+    window.AC_TRANS.isOn = () => currentState === "on";
+
     applyTranslation();
 
     btn?.addEventListener("click", () => {

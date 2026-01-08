@@ -233,20 +233,34 @@ const initAbout = () => { if (uiReady() && typeof window.UI.initAbout === "funct
      try{
        const title = document.getElementById("alertTitle");
        const note  = document.getElementById("alertNote");
-       if(title && titleText) title.textContent = titleText;
-       if(note  && noteText)  note.textContent  = noteText;
+       if(title && titleText){
+         title.textContent = titleText;
+         title.setAttribute("data-i18n", titleText);
+       }
+       if(note && noteText){
+         note.textContent = noteText;
+         note.setAttribute("data-i18n", noteText);
+       }
        openAlertOverlay(html);
+       if(window.AC_TRANS?.isOn?.()) window.AC_TRANS.applyTranslation?.();
      }catch(e){
        console.error("[AuroraCapture] openAlertOverlayFull error:", e);
        openAlertOverlay(html);
+       if(window.AC_TRANS?.isOn?.()) window.AC_TRANS.applyTranslation?.();
      }
    }
 
    function mlatGateHtml(absM){
      return (
-       `当前位置磁纬约 <b>${absM.toFixed(1)}°</b>（|MLAT|，近似值）。<br>` +
-       `当 <b>|MLAT| &lt; ${MLAT_STRONG_WARN}°</b> 时，极光可见性高度依赖<strong>极端磁暴</strong>与<strong>北向开阔地平线</strong>，不适合“常规出门拍”的决策。<br>` +
-       `建议：尽量提高磁纬（靠近/进入极光椭圆边缘）再使用本工具。`
+       `<span data-i18n="当前位置磁纬约">当前位置磁纬约</span> <b>${absM.toFixed(1)}°</b>` +
+       `<span data-i18n="（|MLAT|，近似值）。">（|MLAT|，近似值）。</span><br>` +
+       `<span data-i18n="当">当</span> <b>|MLAT| &lt; ${MLAT_STRONG_WARN}°</b> ` +
+       `<span data-i18n="时，极光可见性高度依赖">时，极光可见性高度依赖</span>` +
+       `<strong><span data-i18n="极端磁暴">极端磁暴</span></strong>` +
+       `<span data-i18n="与">与</span>` +
+       `<strong><span data-i18n="北向开阔地平线">北向开阔地平线</span></strong>` +
+       `<span data-i18n="，不适合“常规出门拍”的决策。">，不适合“常规出门拍”的决策。</span><br>` +
+       `<span data-i18n="建议：尽量提高磁纬（靠近/进入极光椭圆边缘）再使用本工具。">建议：尽量提高磁纬（靠近/进入极光椭圆边缘）再使用本工具。</span>`
      );
    }
 
@@ -255,9 +269,11 @@ const initAbout = () => { if (uiReady() && typeof window.UI.initAbout === "funct
      openAlertOverlayFull(
        "⚠️ 磁纬限制：不可观测",
        (
-         `当前位置磁纬约 <b>${absM.toFixed(1)}°</b>（|MLAT|，近似值）。<br>` +
-         `当 <b>|MLAT| &lt; ${MLAT_HARD_STOP}°</b> 时，极光几乎不可能到达你的可见范围。<br>` +
-         `这是硬性地理限制：无论 Kp / Bz / 速度如何，都不建议投入等待与拍摄。`
+         `<span data-i18n="当前位置磁纬约">当前位置磁纬约</span> <b>${absM.toFixed(1)}°</b>` +
+         `<span data-i18n="（|MLAT|，近似值）。">（|MLAT|，近似值）。</span><br>` +
+         `<span data-i18n="当">当</span> <b>|MLAT| &lt; ${MLAT_HARD_STOP}°</b> ` +
+         `<span data-i18n="时，极光几乎不可能到达你的可见范围。">时，极光几乎不可能到达你的可见范围。</span><br>` +
+         `<span data-i18n="这是硬性地理限制：无论 Kp / Bz / 速度如何，都不建议投入等待与拍摄。">这是硬性地理限制：无论 Kp / Bz / 速度如何，都不建议投入等待与拍摄。</span>`
        ),
        "这是硬性地理限制，不是数据缺失或模型不确定性。"
      );
@@ -587,7 +603,8 @@ function fillCurrentLocation(){
     if(!navigator.geolocation){
       openAlertOverlayFull(
         "📍 无法获取定位",
-        "当前浏览器不支持定位功能。<br><br>你可以手动输入经纬度。",
+        `<span data-i18n="当前浏览器不支持定位功能。">当前浏览器不支持定位功能。</span><br><br>` +
+          `<span data-i18n="你可以手动输入经纬度。">你可以手动输入经纬度。</span>`,
         "可选方案：手动输入 / 奥维地图 / 在线经纬度查询工具。"
       );
       return;
@@ -607,7 +624,7 @@ function fillCurrentLocation(){
             setStatusText("⚠️ 定位返回无效坐标");
             openAlertOverlayFull(
               "📍 定位失败",
-              "定位返回的经纬度无效，请重试或手动输入。",
+              `<span data-i18n="定位返回的经纬度无效，请重试或手动输入。">定位返回的经纬度无效，请重试或手动输入。</span>`,
               "可选方案：手动输入 / 奥维地图 / 在线经纬度查询工具。"
             );
             return;
@@ -627,7 +644,7 @@ function fillCurrentLocation(){
           setStatusText("⚠️ 定位处理异常");
           openAlertOverlayFull(
             "📍 定位失败",
-            "定位成功返回，但处理坐标时发生异常。请重试或手动输入。",
+            `<span data-i18n="定位成功返回，但处理坐标时发生异常。请重试或手动输入。">定位成功返回，但处理坐标时发生异常。请重试或手动输入。</span>`,
             "可选方案：手动输入 / 奥维地图 / 在线经纬度查询工具。"
           );
         }
@@ -643,7 +660,7 @@ function fillCurrentLocation(){
         setStatusText("⚠️ 无法获取定位");
         openAlertOverlayFull(
           "📍 无法获取定位",
-          reason,
+          `<span data-i18n="${reason}">${reason}</span>`,
           "可选方案：手动输入 / 奥维地图 / 在线经纬度查询工具。"
         );
       },
@@ -658,7 +675,7 @@ function fillCurrentLocation(){
     setStatusText("⚠️ 无法获取定位");
     openAlertOverlayFull(
       "📍 无法获取定位",
-      "获取定位时发生异常，请重试或手动输入。",
+      `<span data-i18n="获取定位时发生异常，请重试或手动输入。">获取定位时发生异常，请重试或手动输入。</span>`,
       "可选方案：手动输入 / 奥维地图 / 在线经纬度查询工具。"
     );
   }
@@ -1057,7 +1074,10 @@ function fillCurrentLocation(){
         setStatusText("请先输入有效经纬度。");
         openAlertOverlayFull(
           "⚠️ 经纬度输入无效",
-          "请输入数字格式的纬度/经度。<br>纬度范围：<b>-90° ～ +90°</b>；经度范围：<b>-180° ～ +180°</b>。",
+          `<span data-i18n="请输入数字格式的纬度/经度。">请输入数字格式的纬度/经度。</span><br>` +
+            `<span data-i18n="纬度范围：">纬度范围：</span><b>-90° ～ +90°</b>` +
+            `<span data-i18n="；经度范围：">；经度范围：</span><b>-180° ～ +180°</b>` +
+            `<span data-i18n="。">。</span>`,
           "示例：纬度 53.47，经度 122.35"
         );
         return;
@@ -1068,10 +1088,10 @@ function fillCurrentLocation(){
         setStatusText("⚠️ 经纬度超出范围");
         openAlertOverlayFull(
           "⚠️ 经纬度超出范围",
-          `你输入的是：<b>Latitude ${lat}</b>，<b>Longitude ${lon}</b>。<br>` +
-            `允许范围：<br>` +
-            `纬度（Latitude）：<b>-90° ～ +90°</b><br>` +
-            `经度（Longitude）：<b>-180° ～ +180°</b>` ,
+          `<span data-i18n="你输入的是：">你输入的是：</span><b>Latitude ${lat}</b>，<b>Longitude ${lon}</b>。<br>` +
+            `<span data-i18n="允许范围：">允许范围：</span><br>` +
+            `<span data-i18n="纬度（Latitude）：">纬度（Latitude）：</span><b>-90° ～ +90°</b><br>` +
+            `<span data-i18n="经度（Longitude）：">经度（Longitude）：</span><b>-180° ～ +180°</b>` ,
           "请修正后再点击生成。"
         );
         return;
@@ -1115,11 +1135,19 @@ function fillCurrentLocation(){
       if(Number.isFinite(absMlat) && absMlat < MLAT_HARD_STOP){
         showMlatHardStop(mlat);
 
-        safeHTML($("oneHeroLabel"), `<span style="color:${cColor(1)} !important;">${escapeHTML("不可观测")}</span>`);
-        safeText($("oneHeroMeta"), actionNote1h(1, { hardBlock:true }));
+        safeHTML(
+          $("oneHeroLabel"),
+          `<span style="color:${cColor(1)} !important;" data-i18n="不可观测">不可观测</span>`
+        );
+        const heroMetaText = actionNote1h(1, { hardBlock:true });
+        const heroMetaEsc = escapeHTML(String(heroMetaText));
+        safeHTML($("oneHeroMeta"), `<span data-i18n="${heroMetaEsc}">${heroMetaEsc}</span>`);
         safeHTML(
           $("oneBlockers"),
-          `<div class="blockerExplain s1"><div>${escapeHTML("主要影响因素：" + "磁纬过低，已停止生成")}</div></div>`
+          `<div class="blockerExplain s1"><div>` +
+            `<span data-i18n="主要影响因素：">主要影响因素：</span>` +
+            `<span data-i18n="磁纬过低，已停止生成">磁纬过低，已停止生成</span>` +
+          `</div></div>`
         );
         safeHTML($("swLine"), SW_PLACEHOLDER_HTML);
         safeText($("swMeta"), "—");
@@ -1130,17 +1158,17 @@ function fillCurrentLocation(){
         renderChart(labels, vals, cols);
 
         // For 3-hour burst model: only state (big word) and one-line hint
-        safeText($("threeState"), "静默");
-        safeText($("threeBurst"), "磁纬过低，已停止生成");
+        safeHTML($("threeState"), `<span data-i18n="静默">静默</span>`);
+        safeHTML($("threeBurst"), `<span data-i18n="磁纬过低，已停止生成">磁纬过低，已停止生成</span>`);
         safeText($("threeDeliver"), "—");
         safeText($("threeDeliverMeta"), "—");
 
         // 3小时（三卡，与 72h 同模板）
         [0,1,2].forEach(i => {
           safeText($("threeSlot"+i+"Time"), "—");
-          safeText($("threeSlot"+i+"Conclusion"), "不可观测");
+          safeHTML($("threeSlot"+i+"Conclusion"), `<span data-i18n="不可观测">不可观测</span>`);
           safeText($("threeSlot"+i+"Note"), actionNote1h(1, { hardBlock:true }));
-          safeText($("threeSlot"+i+"Reason"), "不可观测。");
+          safeHTML($("threeSlot"+i+"Reason"), `<span data-i18n="不可观测。">不可观测。</span>`);
           const card = $("threeSlot"+i);
           if(card) card.className = "dayCard c1";
         });
@@ -1148,9 +1176,9 @@ function fillCurrentLocation(){
         // 72h（三列日卡）
         [0,1,2].forEach(i => {
           safeText($("day"+i+"Date"), "—");
-          safeText($("day"+i+"Conclusion"), "不可观测");
+          safeHTML($("day"+i+"Conclusion"), `<span data-i18n="不可观测">不可观测</span>`);
           safeText($("day"+i+"Note"), actionNote72h(1));
-          safeText($("day"+i+"Basis"), "不可观测。");
+          safeHTML($("day"+i+"Basis"), `<span data-i18n="不可观测。">不可观测。</span>`);
           const card = $("day"+i);
           if(card) card.className = "dayCard c1";
         });
@@ -1395,15 +1423,18 @@ function fillCurrentLocation(){
         setStatusText("⚠️ 数据可信度提醒");
 
         const warnHtml = `
-          <div>NOAA 数据口径变动或部分数据缺失：<b>${escapeHTML(missCN)}</b></div>
-          <div class="mutedLine">当前预测可信度较低，建议谨慎参考。</div>
+          <div><span data-i18n="NOAA 数据口径变动或部分数据缺失：">NOAA 数据口径变动或部分数据缺失：</span><b>${escapeHTML(missCN)}</b></div>
+          <div class="mutedLine"><span data-i18n="当前预测可信度较低，建议谨慎参考。">当前预测可信度较低，建议谨慎参考。</span></div>
         `;
 
         const st = document.getElementById("statusText");
         if(st){
           st.classList.add("warn");
           st.title = "点击查看数据可信度说明";
-          st.onclick = () => openAlertOverlay(warnHtml);
+          st.onclick = () => {
+            openAlertOverlay(warnHtml);
+            if(window.AC_TRANS?.isOn?.()) window.AC_TRANS.applyTranslation?.();
+          };
         }
       }else{
         setStatusText("已生成。");
@@ -1482,7 +1513,8 @@ function fillCurrentLocation(){
       // 1小时标题：整句跟随 C 值颜色（用 inline + !important 防止被 CSS 覆盖）
       const heroAllowPlus = (heroScore >= 2 && heroScore <= 4);
       const heroLabelText = heroObj.t;
-      const heroLabelInner = `<span style="color:${cColor(heroObj.score)} !important;">${escapeHTML(String(heroLabelText))}</span>`;
+      const heroLabelEsc = escapeHTML(String(heroLabelText));
+      const heroLabelInner = `<span style="color:${cColor(heroObj.score)} !important;" data-i18n="${heroLabelEsc}">${heroLabelEsc}</span>`;
       safeHTML(
         $("oneHeroLabel"),
         maybePlusWrap(heroLabelInner, heroAllowPlus)
@@ -1547,15 +1579,22 @@ function fillCurrentLocation(){
             if(!primary.trim()) primary = "天色偏亮，微弱极光难以分辨";
           }
 
+          const primaryText = primary || "—";
+          const primaryEsc = escapeHTML(primaryText);
           blockerHTML = `
             <div class="blockerExplain s${heroScore}">
-              <div>${escapeHTML("主要影响因素：" + (primary || "—"))}</div>
+              <div>
+                <span data-i18n="主要影响因素：">主要影响因素：</span>
+                <span data-i18n="${primaryEsc}">${primaryEsc}</span>
+              </div>
             </div>
           `;
         }
       }catch(e){ blockerHTML = ""; }
 
-      safeText($("oneHeroMeta"), actionNote1h(heroScore, heroGate));
+      const heroMetaText = actionNote1h(heroScore, heroGate);
+      const heroMetaEsc = escapeHTML(String(heroMetaText));
+      safeHTML($("oneHeroMeta"), `<span data-i18n="${heroMetaEsc}">${heroMetaEsc}</span>`);
       safeHTML($("oneBlockers"), blockerHTML || "");
 
       renderChart(labels, vals, cols);
@@ -1572,11 +1611,12 @@ function fillCurrentLocation(){
 
       // 送达模型（保留：作为背景信息）
       const del = window.Model.deliverModel(sw);
-      safeText($("threeDeliver"), `${del.count}/3 成立`);
-      safeText(
-        $("threeDeliverMeta"),
-        `Bt平台${del.okBt ? "✅" : "⚠️"} ・ 速度背景${del.okV ? "✅" : "⚠️"} ・ 密度结构${del.okN ? "✅" : "⚠️"}`
-      );
+      const deliverText = `${del.count}/3 成立`;
+      const deliverEsc = escapeHTML(deliverText);
+      const deliverMetaText = `Bt平台${del.okBt ? "✅" : "⚠️"} ・ 速度背景${del.okV ? "✅" : "⚠️"} ・ 密度结构${del.okN ? "✅" : "⚠️"}`;
+      const deliverMetaEsc = escapeHTML(deliverMetaText);
+      safeHTML($("threeDeliver"), `<span data-i18n="${deliverEsc}">${deliverEsc}</span>`);
+      safeHTML($("threeDeliverMeta"), `<span data-i18n="${deliverMetaEsc}">${deliverMetaEsc}</span>`);
 
       // 取某个时刻对应的“小时云量三层”，并返回 cloudMax（不区分高/中/低云展示）
       function _cloudMaxAt(openMeteoJson, atDate){
@@ -1700,12 +1740,14 @@ function fillCurrentLocation(){
       // 3h burst model: show only the state (big) + one-line hint (small)
       const burstStateCN = (s3Burst && s3Burst.state) ? String(s3Burst.state) : "—";
       const burstHintCN  = (s3Burst && s3Burst.hint)  ? String(s3Burst.hint)  : "—";
+      const burstStateEsc = escapeHTML(burstStateCN);
+      const burstHintEsc = escapeHTML(burstHintCN);
 
       // big word (静默/爆发)
-      safeText($("threeState"), burstStateCN);
+      safeHTML($("threeState"), `<span data-i18n="${burstStateEsc}">${burstStateEsc}</span>`);
 
       // one-line hint under the big word
-      safeText($("threeBurst"), burstHintCN);
+      safeHTML($("threeBurst"), `<span data-i18n="${burstHintEsc}">${burstHintEsc}</span>`);
 
       // --- Render 3 hourly cards (restore) ---
       // UI ids expected:
@@ -1716,15 +1758,23 @@ function fillCurrentLocation(){
           : { t: (s.score5 >= 4 ? "值得出门" : s.score5 === 3 ? "可蹲守" : s.score5 === 2 ? "低概率" : "不可观测"), score: s.score5 };
 
         const timeText = `${fmtHM(s.start)}–${fmtHM(s.end)}`;
+        const noteText = actionNote1h(s.score5, s.gate);
+        const labEsc = escapeHTML(String(lab.t));
+        const noteEsc = escapeHTML(String(noteText));
+
         safeText($("threeSlot" + i + "Time"), timeText);
-        safeText($("threeSlot" + i + "Conclusion"), lab.t);
-        safeText($("threeSlot" + i + "Note"), actionNote1h(s.score5, s.gate));
+        safeHTML($("threeSlot" + i + "Conclusion"), `<span data-i18n="${labEsc}">${labEsc}</span>`);
+        safeHTML($("threeSlot" + i + "Note"), `<span data-i18n="${noteEsc}">${noteEsc}</span>`);
 
         // reason line: show a single primary factor when we have it; otherwise keep it minimal
-        const reason = (s.factorText && String(s.factorText).trim())
-          ? ("主要影响因素：" + String(s.factorText))
+        const reasonText = (s.factorText && String(s.factorText).trim())
+          ? String(s.factorText)
           : "";
-        safeText($("threeSlot" + i + "Reason"), reason);
+        const reasonEsc = escapeHTML(reasonText);
+        const reasonHTML = reasonText
+          ? `<span data-i18n="主要影响因素：">主要影响因素：</span><span data-i18n="${reasonEsc}">${reasonEsc}</span>`
+          : "";
+        safeHTML($("threeSlot" + i + "Reason"), reasonHTML);
 
         const card = $("threeSlot" + i);
         if(card) card.className = `dayCard ${cClass(s.score5)}`;
@@ -1792,37 +1842,56 @@ function fillCurrentLocation(){
 
         // 云量更佳点（即使云量模块隐藏，这里仍作为依据展示）
         let cloudDetail = "云量更佳点：—";
+        let cloudWin = null;
         if (clouds.ok && clouds.data) {
           const win = bestCloudHourForDay(clouds.data, d);
           if (win) {
+            cloudWin = win;
             cloudDetail = `云量更佳点：${win.hh}:00（L/M/H≈${win.low}/${win.mid}/${win.high}%）`;
           }
         }
 
         // 依据（不折叠，允许换行）
-        const kpLine = `能量背景：Kp峰值≈${kpMax == null ? "—" : round0(kpMax)}`;
-        const delLine = `送达模型：${del.count}/3（Bt/速度/密度）`;
-        const trigLine = `触发模型：高速风${p1a}/1 · 能量输入${p1b}/1`;
-        const nightLine = `夜晚占比：${Math.round(nightRatio * 100)}%`;
+        const kpValue = kpMax == null ? "—" : round0(kpMax);
+        const nightPercent = Math.round(nightRatio * 100);
+        const cloudDetailHTML = cloudWin
+          ? `<span data-i18n="云量更佳点：">云量更佳点：</span>${escapeHTML(String(cloudWin.hh))}:00` +
+            `<span data-i18n="（L/M/H≈">（L/M/H≈</span>` +
+            `${escapeHTML(`${cloudWin.low}/${cloudWin.mid}/${cloudWin.high}`)}%` +
+            `<span data-i18n="）">）</span>`
+          : `<span data-i18n="云量更佳点：">云量更佳点：</span>—`;
 
         const basisHTML = [
-          `<div class="basisItem">${escapeHTML(kpLine)}</div>`,
-          `<div class="basisItem">${escapeHTML(delLine)}</div>`,
-          `<div class="basisItem">${escapeHTML(trigLine)}</div>`,
-          `<div class="basisItem">${escapeHTML(nightLine)}</div>`,
-          `<div class="basisItem">${escapeHTML(cloudDetail)}</div>`,
+          `<div class="basisItem">` +
+            `<span data-i18n="能量背景：">能量背景：</span>` +
+            `<span data-i18n="Kp峰值≈">Kp峰值≈</span>${escapeHTML(kpValue)}` +
+          `</div>`,
+          `<div class="basisItem">` +
+            `<span data-i18n="送达模型：">送达模型：</span>${escapeHTML(String(del.count))}/3` +
+            `<span data-i18n="（Bt/速度/密度）">（Bt/速度/密度）</span>` +
+          `</div>`,
+          `<div class="basisItem">` +
+            `<span data-i18n="触发模型：">触发模型：</span>` +
+            `<span data-i18n="高速风">高速风</span>${escapeHTML(String(p1a))}/1` +
+            `<span data-i18n=" · 能量输入"> · 能量输入</span>${escapeHTML(String(p1b))}/1` +
+          `</div>`,
+          `<div class="basisItem">` +
+            `<span data-i18n="夜晚占比：">夜晚占比：</span>${escapeHTML(String(nightPercent))}%` +
+          `</div>`,
+          `<div class="basisItem">${cloudDetailHTML}</div>`,
         ].join("");
 
         // 写入到三列卡片
         safeText($("day"+i+"Date"), key);
-        safeText($("day"+i+"Conclusion"), lab.t);
-        safeText($("day"+i+"Note"), actionNote72h(score5));
+        safeHTML($("day"+i+"Conclusion"), `<span data-i18n="${escapeHTML(String(lab.t))}">${escapeHTML(String(lab.t))}</span>`);
+        safeHTML($("day"+i+"Note"), `<span data-i18n="${escapeHTML(String(actionNote72h(score5)))}">${escapeHTML(String(actionNote72h(score5)))}</span>`);
         safeHTML($("day"+i+"Basis"), basisHTML);
 
         const card = $("day"+i);
         if(card) card.className = `dayCard ${lab.cls}`;
       });
 
+      if(window.AC_TRANS?.isOn?.()) window.AC_TRANS.applyTranslation?.();
     }catch(err){
       console.error("[AuroraCapture] run error:", err);
       setStatusText("生成失败：请打开控制台查看错误。");
@@ -1841,14 +1910,15 @@ function fillCurrentLocation(){
     safeHTML($("swLine"), SW_PLACEHOLDER_HTML);
     safeText($("swMeta"), "—");
 
-
     $("btnRun")?.addEventListener("click", run);
     $("btnGeo")?.addEventListener("click", fillCurrentLocation);
+    $("btnAbout")?.addEventListener("click", () => {
+      if(window.AC_TRANS?.isOn?.()) window.AC_TRANS.applyTranslation?.();
+    });
 
     // Alert modal close buttons
     document.getElementById("alertClose")?.addEventListener("click", closeAlertOverlay);
     document.getElementById("alertOk")?.addEventListener("click", closeAlertOverlay);
-
   }
   document.addEventListener("DOMContentLoaded", bootstrap);
 
